@@ -1,0 +1,6 @@
+# Runtime dependencies (see pyproject.toml [project.optional-dependencies].dev for dev tools)
+numpy>=2.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.8
+nats-py>=2.7
