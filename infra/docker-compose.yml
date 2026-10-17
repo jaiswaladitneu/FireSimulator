@@ -1,0 +1,36 @@
+# Brings up the whole stack locally: API, NATS, PostgreSQL, Redis.
+# Run from the repo root:  docker compose -f infra/docker-compose.yml up
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      NATS_URL: nats://nats:4222
+      DATABASE_URL: postgresql://firesim:firesim@postgres:5432/firesim
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - nats
+      - postgres
+      - redis
+
+  nats:
+    image: nats:2.10
+    ports:
+      - "4222:4222"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: firesim
+      POSTGRES_PASSWORD: firesim
+      POSTGRES_DB: firesim
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
