@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from engine import Scenario, SimState, SimulationEngine
@@ -16,6 +17,14 @@ from engine.scenario import IgnitionPoint
 from persistence import InMemoryScenarioRepository, ScenarioRecord
 
 app = FastAPI(title="Fire Simulator API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 scenarios = InMemoryScenarioRepository()
 _engine: SimulationEngine | None = None
@@ -138,6 +147,15 @@ def step() -> dict:
     eng.step()
     return _state_payload(eng)
 
+@app.post("/simulation/tick")
+def tick() -> dict:
+    eng = _require_engine()
+
+    if eng.state == SimState.RUNNING:
+        eng.advance()
+
+    return _state_payload(eng)
+
 
 @app.post("/simulation/reset")
 def reset() -> dict:
@@ -159,4 +177,10 @@ def state() -> dict:
 
 
 def _state_payload(eng: SimulationEngine) -> dict:
-    return {"state": eng.state.value, "tick": eng.tick, "speed": eng.speed, "counts": eng.counts()}
+    return {
+        "state": eng.state.value,
+        "tick": eng.tick,
+        "speed": eng.speed,
+        "counts": eng.counts(),
+        "grid": eng.grid.state.tolist(),
+    }
