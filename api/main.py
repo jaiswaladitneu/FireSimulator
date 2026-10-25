@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from dataclasses import asdict
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from engine import Scenario, SimulationEngine
+from engine import Scenario, SimState, SimulationEngine
 from engine.scenario import IgnitionPoint
 from persistence import InMemoryScenarioRepository, ScenarioRecord
 
@@ -81,6 +81,34 @@ def get_scenario(scenario_id: str) -> dict:
 def delete_scenario(scenario_id: str) -> None:
     if not scenarios.delete(scenario_id):
         raise HTTPException(status_code=404, detail="scenario not found")
+
+
+@app.get("/scenarios/{scenario_id}/replay")
+def replay_scenario(
+    scenario_id: str,
+    max_ticks: int = Query(default=2000, ge=1, le=10000),
+) -> dict:
+    """Deterministically replay a saved scenario and return its per-tick timeline.
+
+    Runs are reproducible (seeded RNG + procedural map), so a saved scenario
+    replays to the exact same sequence of states without the original live
+    session. Each frame is the cell-state counts at that tick.
+    """
+    rec = scenarios.find(scenario_id)
+    if rec is None:
+        raise HTTPException(status_code=404, detail="scenario not found")
+    eng = SimulationEngine.from_scenario(_to_scenario(ScenarioIn(**rec.payload)))
+    frames = [{"tick": eng.tick, "counts": eng.counts()}]
+    eng.start()
+    while eng.state == SimState.RUNNING and eng.tick < max_ticks:
+        eng.advance()
+        frames.append({"tick": eng.tick, "counts": eng.counts()})
+    return {
+        "scenario_id": scenario_id,
+        "ticks": eng.tick,
+        "final_state": eng.state.value,
+        "frames": frames,
+    }
 
 
 # ---- playback -----------------------------------------------------------
