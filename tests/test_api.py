@@ -35,3 +35,22 @@ def test_create_scenario_and_play():
 def test_playback_without_scenario_is_conflict():
     # Reset module state is not trivial; a missing scenario id still 404s.
     assert client.get("/scenarios/does-not-exist").status_code == 404
+
+
+def test_replay_is_deterministic():
+    body = {
+        "name": "Replay Burn", "width": 24, "height": 24, "seed": 7,
+        "ignition_points": [{"x": 12, "y": 12}],
+    }
+    sid = client.post("/scenarios", json=body).json()["id"]
+
+    first = client.get(f"/scenarios/{sid}/replay", params={"max_ticks": 500})
+    second = client.get(f"/scenarios/{sid}/replay", params={"max_ticks": 500})
+
+    assert first.status_code == 200
+    assert len(first.json()["frames"]) > 1
+    assert first.json() == second.json()  # seeded runs replay identically
+
+
+def test_replay_unknown_scenario_404():
+    assert client.get("/scenarios/does-not-exist/replay").status_code == 404
