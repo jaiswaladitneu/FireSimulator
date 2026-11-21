@@ -11,7 +11,7 @@ from typing import Protocol
 
 import numpy as np
 
-from .cell import FUEL_FLAMMABILITY, CellState
+from .cell import FUEL_FLAMMABILITY, FUEL_INTENSITY, CellState
 from .grid import Grid
 from .wind import Wind
 
@@ -74,5 +74,79 @@ class PhysicsSpreadModel:
 
             p = np.clip(BASE_P * suscept * wind_factor * slope_factor, 0.0, MAX_P)
             no_ignite *= 1.0 - p * nb
+
+        return 1.0 - no_ignite
+
+
+def _lookup(table: dict) -> np.ndarray:
+    """Dense lookup array indexed by fuel code."""
+    lut = np.zeros(max(int(k) for k in table) + 1, dtype=np.float32)
+    for k, v in table.items():
+        lut[int(k)] = v
+    return lut
+
+
+_FLAM_LUT = _lookup(FUEL_FLAMMABILITY)
+_INTENSITY_LUT = _lookup(FUEL_INTENSITY)
+
+SPOT_BASE = 0.12       # base chance of an ember igniting a cell 2+ cells downwind
+SPOT_ALIGN = 0.7       # embers only land within ~45 degrees of the wind direction
+MIN_SPOT_WIND = 0.1    # no spotting in near-calm air (normalized wind speed)
+# Offsets (dy, dx) at distance 2..4 cells; each is a possible ember landing spot.
+SPOT_OFFSETS = [
+    (dy, dx)
+    for dy in range(-4, 5)
+    for dx in range(-4, 5)
+    if 1.5 < (dy * dy + dx * dx) ** 0.5 <= 4.3
+]
+
+
+class UrbanSpreadModel(PhysicsSpreadModel):
+    """Spread strategy for towns (wildland-urban interface).
+
+    Adds two effects on top of the default model:
+
+    * **Source intensity** — burning buildings and hazardous sites (fuel, lithium
+      batteries) radiate more heat than vegetation, so they ignite neighbours faster.
+    * **Ember spotting** — wind carries embers 2-4 cells downwind, so fire can jump
+      roads and rivers, which is how most homes catch fire in real urban wildfires.
+    """
+
+    def ignition_probability(self, grid: Grid, wind: Wind) -> np.ndarray:
+        burning = grid.state == CellState.BURNING
+        if not burning.any():
+            return np.zeros(grid.state.shape, dtype=np.float32)
+
+        suscept = np.clip(_FLAM_LUT[grid.fuel] * (1.0 - grid.moisture), 0.0, 1.0)
+        source = burning * _INTENSITY_LUT[grid.fuel]   # heat output of each burning cell
+
+        we, wn = wind.vector()
+        ws = wind.speed_norm
+        elev = grid.elevation
+        no_ignite = np.ones(grid.state.shape, dtype=np.float32)
+
+        for dy, dx in NEIGHBORS:
+            nb = _shift(source, -dy, -dx)
+            if not nb.any():
+                continue
+            mag = (dy * dy + dx * dx) ** 0.5
+            alignment = we * (-dx / mag) + wn * (dy / mag)
+            wind_factor = np.clip(1.0 + WIND_K * ws * alignment, 0.1, 3.0)
+            delev = elev - _shift(elev, -dy, -dx)
+            slope_factor = np.clip(1.0 + SLOPE_K * np.tanh(delev / 0.2), 0.3, 2.0)
+            p = np.clip(BASE_P * suscept * wind_factor * slope_factor * nb, 0.0, MAX_P)
+            no_ignite *= 1.0 - p
+
+        if ws >= MIN_SPOT_WIND:
+            for dy, dx in SPOT_OFFSETS:
+                mag = (dy * dy + dx * dx) ** 0.5
+                alignment = we * (-dx / mag) + wn * (dy / mag)
+                if alignment < SPOT_ALIGN:
+                    continue
+                nb = _shift(source, -dy, -dx)
+                if not nb.any():
+                    continue
+                p = np.clip(SPOT_BASE * ws * alignment * suscept * nb / mag, 0.0, MAX_P)
+                no_ignite *= 1.0 - p
 
         return 1.0 - no_ignite

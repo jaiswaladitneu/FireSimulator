@@ -7,6 +7,7 @@ seeded RNG makes every run reproducible.
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Protocol
 
 import numpy as np
 
@@ -23,6 +24,19 @@ class SimState(StrEnum):
     RUNNING = "running"
     PAUSED = "paused"
     COMPLETED = "completed"
+
+
+class TickObserver(Protocol):
+    """Something that reacts to the engine's tick loop (GoF Observer).
+
+    ``before_tick`` runs at the start of every tick (it may queue suppression),
+    ``after_tick`` after the fire has advanced, and ``on_reset`` after a reset.
+    The engine never needs to know what the observer is (e.g. the city layer).
+    """
+
+    def before_tick(self, engine: SimulationEngine) -> None: ...
+    def after_tick(self, engine: SimulationEngine) -> None: ...
+    def on_reset(self, engine: SimulationEngine) -> None: ...
 
 
 class SimulationEngine:
@@ -45,10 +59,14 @@ class SimulationEngine:
         self.state = SimState.IDLE
         self._rng = np.random.default_rng(seed)
         self._pending: list[tuple[int, int]] = []
+        self._observers: list[TickObserver] = []
         self._burn_rate = np.zeros(grid.fuel.shape, dtype=np.float32)
         for ft, val in FUEL_BURN_RATE.items():
             self._burn_rate[grid.fuel == ft] = val
         self._save_initial()
+
+    def add_observer(self, observer: TickObserver) -> None:
+        self._observers.append(observer)
 
     # ---- construction ---------------------------------------------------
     @classmethod
@@ -66,6 +84,10 @@ class SimulationEngine:
     def ignite(self, x: int, y: int) -> None:
         self.grid.ignite(x, y)
         self._save_initial()  # ignition points are part of the initial condition
+
+    def spot_fire(self, x: int, y: int) -> None:
+        """Start a new fire mid-run without changing the initial condition."""
+        self.grid.ignite(x, y)
 
     # ---- playback controls ---------------------------------------------
     def start(self) -> None:
@@ -89,6 +111,10 @@ class SimulationEngine:
         elif self.state == SimState.IDLE:
             self.state = SimState.PAUSED
 
+    def stop(self) -> None:
+        """End the run now (e.g. the incident commander closes the incident)."""
+        self.state = SimState.COMPLETED
+
     def reset(self) -> None:
         self.grid.state = self._initial_state.copy()
         self.grid.fuel_remaining = self._initial_fuel.copy()
@@ -96,6 +122,8 @@ class SimulationEngine:
         self._pending.clear()
         self.tick = 0
         self.state = SimState.IDLE
+        for obs in self._observers:
+            obs.on_reset(self)
 
     def apply_suppression(self, cells: list[tuple[int, int]]) -> None:
         """Queue suppression; applied on the next tick (reacts to other components)."""
@@ -103,6 +131,8 @@ class SimulationEngine:
 
     # ---- the tick -------------------------------------------------------
     def advance(self) -> None:
+        for obs in self._observers:
+            obs.before_tick(self)
         g = self.grid
 
         # 1. Cells that started igniting last tick are now burning.
@@ -128,6 +158,8 @@ class SimulationEngine:
         self._pending.clear()
 
         self.tick += 1
+        for obs in self._observers:
+            obs.after_tick(self)
 
         # 5. Completion when no fire remains.
         active = np.any((g.state == CellState.BURNING) | (g.state == CellState.IGNITING))

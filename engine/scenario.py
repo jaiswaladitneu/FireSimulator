@@ -22,3 +22,8 @@ class Scenario:
     wind_speed: float = 15.0       # km/h
     ignition_points: list[IgnitionPoint] = field(default_factory=list)
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    # City scenarios (map_type="city") add a town, its people and fire crews.
+    map_type: str = "wildland"     # "wildland" | "city"
+    hour: int = 14                 # local time the incident starts (drives occupancy)
+    crews: int = 4                 # fire engines available
+    auto_dispatch: bool = False    # crews self-assign to the top priorities
