@@ -1,28 +1,34 @@
-# Brings up the whole stack locally: API, NATS, PostgreSQL, Redis.
-# Run from the repo root:  docker compose -f infra/docker-compose.yml up
+# Local deployment of the Fire Simulator (API + command-center UI) on http://localhost:8000.
+# From the repository root:
+#   python build.py deploy      (or: docker compose -f infra/docker-compose.yml up -d --build)
+#   python build.py stop        (or: docker compose -f infra/docker-compose.yml down)
+#
+# NATS, PostgreSQL and Redis are the integration services of the Part B design. The current
+# code does not use them yet (in-memory message bus, JSON-file incident history), so they only
+# start when asked for:  docker compose -f infra/docker-compose.yml --profile integration up -d
+name: firesim
+
 services:
-  api:
+  firesim:
     build:
       context: ..
       dockerfile: Dockerfile
+    image: firesim:local
     ports:
       - "8000:8000"
-    environment:
-      NATS_URL: nats://nats:4222
-      DATABASE_URL: postgresql://firesim:firesim@postgres:5432/firesim
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      - nats
-      - postgres
-      - redis
+    volumes:
+      - incidents:/app/data        # incident history survives restarts and rebuilds
+    restart: unless-stopped
 
   nats:
     image: nats:2.10
+    profiles: [integration]
     ports:
       - "4222:4222"
 
   postgres:
     image: postgres:16
+    profiles: [integration]
     environment:
       POSTGRES_USER: firesim
       POSTGRES_PASSWORD: firesim
@@ -32,5 +38,9 @@ services:
 
   redis:
     image: redis:7
+    profiles: [integration]
     ports:
       - "6379:6379"
+
+volumes:
+  incidents:
