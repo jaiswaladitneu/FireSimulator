@@ -2,6 +2,9 @@ import numpy as np
 
 from engine import CellState, Grid, Scenario, SimState, SimulationEngine
 from engine.scenario import IgnitionPoint
+from messaging.bus import InMemoryBus
+from messaging.events import TOPIC_EXTINGUISHED, TOPIC_STATE
+from messaging.publisher import EventPublisher
 
 
 def _ignited_engine(seed=0):
@@ -68,3 +71,39 @@ def test_suppression_stops_cells_burning():
     eng.apply_suppression([(4, 4)])
     eng.advance()
     assert eng.grid.get_state(4, 4) == CellState.SUPPRESSED
+
+
+def test_closed_incident_ignores_step_and_start():
+    eng = _ignited_engine()
+    eng.stop()
+    eng.step()
+    eng.start()
+    assert eng.state == SimState.COMPLETED
+    assert eng.tick == 0
+
+
+def test_speed_is_clamped_to_the_supported_range():
+    eng = _ignited_engine()
+    eng.set_speed(100)
+    assert eng.speed == 16.0
+    eng.set_speed(0)
+    assert eng.speed == 0.25
+
+
+def test_snapshot_is_a_memento_of_tick_and_cells():
+    eng = _ignited_engine()
+    eng.step()
+    snap = eng.snapshot()
+    assert snap["tick"] == 1
+    assert snap["state"] == eng.grid.state.tolist()
+
+
+def test_publisher_announces_when_the_fire_is_out():
+    bus = InMemoryBus()
+    eng = _ignited_engine()
+    eng.publisher = EventPublisher(bus)
+    eng.run(max_ticks=2000)
+    topics = [topic for topic, _ in bus.published]
+    assert eng.state == SimState.COMPLETED
+    assert topics[-1] == TOPIC_EXTINGUISHED
+    assert topics.count(TOPIC_STATE) == eng.tick   # one state update per tick

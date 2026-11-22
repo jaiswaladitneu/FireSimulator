@@ -9,6 +9,9 @@ venv/
 .ruff_cache/
 *.egg-info/
 .coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
 # Node / frontend
 node_modules/
