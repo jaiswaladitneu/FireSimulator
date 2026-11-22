@@ -1,0 +1,73 @@
+@startuml class-messaging
+!include theme.iuml
+set separator none
+title Messaging: fire events out, suppression commands in (as implemented)
+hide empty members
+skinparam nodesep 35
+skinparam ranksep 45
+
+class SimulationEngine <<Subject>> <<external>>
+
+package "messaging  -  publish / subscribe on versioned topics" {
+  class EventPublisher <<Publisher>> {
+    bus: MessageBus
+    --
+    publish_state_update(tick, counts)
+    publish_spread(tick, counts)
+    publish_extinguished(tick)
+    publish_snapshot(tick, state)
+  }
+  class SuppressionListener <<Subscriber>> {
+    bus: MessageBus
+    engine: SimulationEngine
+    received: int
+  }
+  interface MessageBus <<Port>> {
+    publish(topic, payload)
+    subscribe(topic, handler)
+  }
+  class InMemoryBus <<Adapter>> {
+    published: list[(topic, payload)]
+  }
+  class FireEvent <<dataclass>> {
+    tick: int
+    version: str = "1"
+    timestamp: float
+    --
+    to_dict(): dict
+  }
+  class StateUpdateEvent <<dataclass>> {
+    counts: dict
+  }
+  class ExtinguishedEvent <<dataclass>>
+  class SnapshotEvent <<dataclass>> {
+    state: list
+  }
+}
+
+' ---- relationships ---------------------------------------------------------
+SimulationEngine -down-> "0..1" EventPublisher : publisher (optional)
+SuppressionListener -up-> SimulationEngine : apply_suppression()
+EventPublisher -down-> MessageBus : publish
+SuppressionListener -down-> MessageBus : subscribe
+MessageBus <|.. InMemoryBus
+EventPublisher ..> FireEvent : sends to_dict()
+FireEvent <|-- StateUpdateEvent
+FireEvent <|-- ExtinguishedEvent
+FireEvent <|-- SnapshotEvent
+
+legend right
+  **Roles**
+  <<Port>> / <<Adapter>>  MessageBus is the port the code depends
+     on; InMemoryBus is the adapter in use. The NATS adapter of
+     the Part B plan is not built.
+  <<Publisher>>  topics out: fire.state.v1 (every tick),
+     fire.extinguished.v1 (fire out), fire.spread.v1,
+     fire.snapshot.v1; every payload carries version "1".
+  <<Subscriber>>  topic in: sim.suppression.v1; the cells are
+     queued with apply_suppression() and applied next tick.
+  The API creates sessions without a publisher, so events flow
+  only where a bus is wired (the messaging tests).
+  Grey class: defined in the engine-core diagram.
+endlegend
+@enduml

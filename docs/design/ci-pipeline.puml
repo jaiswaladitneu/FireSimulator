@@ -1,0 +1,44 @@
+@startuml ci-pipeline
+!include theme.iuml
+title CI/CD pipeline  (.github/workflows/ci.yml)
+
+start
+:Trigger: push to any branch, pull request to main,
+or manual run (Actions tab / gh workflow run CI);
+fork
+  partition "backend job  (ubuntu-latest, Python 3.12)" {
+    :python build.py setup --scope backend
+    (pip install -r requirements-dev.txt);
+    :python build.py lint --scope backend   (ruff);
+    :python build.py compile --scope backend   (byte-compile);
+    :python build.py test --scope backend
+    (pytest + pytest-cov, fails under 90 %);
+    :python build.py docs   (pdoc -> docs/api);
+    :Upload artifacts: coverage-report, api-docs;
+  }
+fork again
+  partition "frontend job  (ubuntu-latest, Node 22)" {
+    :python build.py setup --scope frontend   (npm ci);
+    :python build.py lint --scope frontend   (oxlint);
+    :python build.py compile --scope frontend
+    (tsc type-check + Vite bundle);
+    :python build.py test --scope frontend
+    (runs once package.json has a test script);
+    :Upload artifact: ui-dist;
+  }
+end fork
+partition "package job  (needs backend + frontend)" {
+  :python build.py package
+  (multi-stage docker build: Node builds the UI,
+  Python image serves API + UI);
+  :python build.py smoke
+  (run the container; check /, /api/health,
+  create a scenario, step once);
+  if (push to main?) then (yes)
+    :Log in to ghcr.io (GITHUB_TOKEN);
+    :Push image  :<short sha>  and  :latest;
+  else (no)
+  endif
+}
+stop
+@enduml

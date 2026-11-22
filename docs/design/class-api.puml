@@ -1,0 +1,111 @@
+@startuml class-api
+!include theme.iuml
+set separator none
+title REST API and persistence (as implemented)
+hide empty members
+skinparam nodesep 30
+skinparam ranksep 45
+
+package "api  -  FastAPI + pydantic, served by uvicorn" {
+  class ApiPrefixMiddleware <<Middleware>> {
+    app: ASGIApp
+    --
+    __call__(scope, receive, send)
+  }
+  class "api.main (FastAPI app)" as API <<Facade>> {
+    scenarios: ScenarioRepository
+    incidents: IncidentRepository
+    _session: Session | None
+    --
+    POST /scenarios,  GET /scenarios,  GET | DELETE /scenarios/{id}
+    GET /scenarios/{id}/replay
+    POST /simulation/play | pause | step | tick | reset | speed
+    GET /simulation/state,  GET /simulation/map
+    POST /simulation/ignite | suppress | dispatch | auto-dispatch | end
+    GET /incidents,  GET | DELETE /incidents/{id},  DELETE /incidents
+    POST /incidents/simulate
+    GET /health
+    {static} mount_ui(app, directory): bool
+  }
+  class ScenarioIn <<DTO>> {
+    name: str
+    width, height, seed: int
+    wind_direction, wind_speed: float
+    ignition_points: list[IgnitionPointIn]
+    map_type, hour, crews, auto_dispatch
+  }
+  class "SpeedIn, CellIn, SuppressIn,\nDispatchIn, AutoDispatchIn, BatchIn" as OtherIn <<DTO>>
+}
+
+class "engine Session" as Session <<external>>
+
+package "persistence  -  Repository pattern" {
+  interface ScenarioRepository <<Repository>> {
+    save(record) / find(id) / all() / delete(id)
+  }
+  interface IncidentRepository <<Repository>> {
+    save / find / all / delete / clear
+  }
+  interface SnapshotRepository <<Repository>> {
+    save(snapshot) / find_by_scenario(id)
+  }
+  class InMemoryScenarioRepository
+  class InMemoryIncidentRepository
+  class JsonFileIncidentRepository {
+    path: Path
+    --
+    writes atomically; moves a corrupt file aside
+  }
+  class InMemorySnapshotRepository
+  class ScenarioRecord <<dataclass>> {
+    id, name: str
+    payload: dict
+  }
+  class IncidentRecord <<dataclass>> {
+    id, name, scenario_id: str
+    source: live | simulated
+    outcome: extinguished | stopped | time_limit
+    started_at, ended_at: float
+    ticks: int
+    params, summary: dict
+    --
+    brief(): dict
+  }
+  class Snapshot <<Memento>> {
+    scenario_id: str
+    tick: int
+    state: list
+    timestamp: float
+  }
+}
+
+' ---- relationships ---------------------------------------------------------
+ApiPrefixMiddleware -down-> API : wraps
+API ..> ScenarioIn
+API ..> OtherIn
+API -down-> "0..1" Session : drives
+API -down-> "1" ScenarioRepository : scenarios
+API -down-> "1" IncidentRepository : incidents
+ScenarioRepository <|.. InMemoryScenarioRepository
+IncidentRepository <|.. InMemoryIncidentRepository
+InMemoryIncidentRepository <|-- JsonFileIncidentRepository
+SnapshotRepository <|.. InMemorySnapshotRepository
+ScenarioRepository ..> ScenarioRecord
+IncidentRepository ..> IncidentRecord
+SnapshotRepository ..> Snapshot
+
+legend right
+  **Roles**
+  <<Facade>>  api.main: one REST surface over the active
+     session, the scenarios and the incident history.
+  <<Middleware>>  /api/<path> is served as /<path>, so one UI
+     build works behind the Vite proxy and in the container.
+  <<DTO>>  pydantic request models validate every body
+     (ranges, required fields) and return 422 when invalid.
+  <<Repository>>  storage behind interfaces: scenarios in memory;
+     incident history in a JSON file (in memory during tests).
+     PostgreSQL from the Part B plan is not built.
+  <<Memento>>  Snapshot records the tick and cell states.
+  Grey class: defined in the engine-core diagram.
+endlegend
+@enduml

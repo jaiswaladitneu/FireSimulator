@@ -1,0 +1,140 @@
+@startuml class-engine
+!include theme.iuml
+set separator none
+title Simulation engine core (as implemented)
+hide empty members
+skinparam nodesep 35
+skinparam ranksep 45
+
+class "session module" as SessionFactory <<Factory>> {
+  {static} create_session(sc): Session
+  {static} default_ignition(city, wind): IgnitionPoint
+}
+class Session <<dataclass>> {
+  scenario: Scenario
+  engine: SimulationEngine
+  city: CityModel | None
+}
+class Scenario <<dataclass>> {
+  id, name: str
+  width, height, seed: int
+  wind_direction, wind_speed: float
+  ignition_points: list[IgnitionPoint]
+  map_type: "wildland" | "city"
+  hour, crews: int
+  auto_dispatch: bool
+}
+class IgnitionPoint <<dataclass>> {
+  x, y, tick: int
+}
+
+class SimulationEngine <<Subject>> {
+  grid: Grid
+  wind: Wind
+  spread_model: SpreadModel
+  publisher: EventPublisher | None
+  tick: int
+  speed: float
+  state: SimState
+  --
+  {static} from_scenario(sc): SimulationEngine
+  add_observer(observer)
+  start() / pause() / step() / stop() / reset()
+  advance()
+  run(max_ticks): int
+  ignite(x, y) / spot_fire(x, y)
+  apply_suppression(cells)
+  counts(): dict
+  snapshot(): dict
+}
+enum SimState <<state machine>> {
+  IDLE
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+interface SpreadModel <<Strategy>> {
+  ignition_probability(grid, wind): ndarray
+}
+class PhysicsSpreadModel <<ConcreteStrategy>>
+class UrbanSpreadModel <<ConcreteStrategy>>
+
+interface TickObserver <<Observer>> {
+  before_tick(engine)
+  after_tick(engine)
+  on_reset(engine)
+}
+class CityModel <<ConcreteObserver>> <<external>>
+
+class Grid {
+  width, height: int
+  state, fuel, moisture: ndarray[y, x]
+  elevation, fuel_remaining: ndarray[y, x]
+  --
+  in_bounds(x, y): bool
+  get_state(x, y): CellState
+  ignite(x, y)
+  counts(): dict
+}
+enum CellState {
+  UNBURNED
+  IGNITING
+  BURNING
+  BURNED
+  SUPPRESSED
+}
+enum FuelType {
+  NONE, GRASS, SHRUB, FOREST
+  STRUCTURE, MASONRY, HAZMAT
+}
+class Wind <<dataclass>> {
+  direction_deg: float
+  speed: float
+  --
+  vector(): (east, north)
+}
+class MapGenerator <<Factory>> {
+  {static} generate(width, height, seed): Grid
+}
+
+' ---- layout and relationships --------------------------------------------
+SessionFactory .right.> Session : creates >
+SessionFactory ..> UrbanSpreadModel : city sessions
+Session o-- Scenario
+Session o-- SimulationEngine
+Session o-- "0..1" CityModel
+Scenario *-- "0..*" IgnitionPoint
+SimulationEngine .left.> Scenario : from_scenario()
+SimulationEngine -right-> SimState : state
+SimulationEngine --> "1" SpreadModel : asks every tick >
+SimulationEngine o-- "0..*" TickObserver : notifies >
+SimulationEngine o-- "1" Grid
+SimulationEngine o-- "1" Wind
+SpreadModel <|.. PhysicsSpreadModel
+PhysicsSpreadModel <|-- UrbanSpreadModel
+TickObserver <|.. CityModel
+Grid ..> CellState
+Grid ..> FuelType
+MapGenerator .up.> Grid : creates >
+
+legend right
+  **Design patterns (stereotypes on the classes)**
+  <<Strategy>>  SpreadModel: the engine asks it for per-cell
+     ignition probabilities every tick. Wildland sessions use
+     PhysicsSpreadModel (fuel, slope, moisture, wind); city
+     sessions use UrbanSpreadModel (+ intensity, ember spotting).
+  <<Observer>>  TickObserver: the engine (subject) notifies
+     observers before/after every tick and on reset, so the
+     city layer plugs in without the engine importing it.
+  <<state machine>>  SimState, guarded by the engine:
+     IDLE -> RUNNING <-> PAUSED -> COMPLETED;
+     step() advances one tick and pauses; reset() -> IDLE.
+  <<Factory>>  create_session() builds a wildland or city
+     Session; MapGenerator builds wildland grids.
+  **Snapshot (Memento style)**  snapshot() exports the tick
+     and every cell state (persistence.Snapshot). Replay
+     re-runs the seeded scenario rather than restoring one.
+  Grey class: defined in the city-layer diagram.
+endlegend
+@enduml

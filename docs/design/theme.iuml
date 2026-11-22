@@ -1,0 +1,100 @@
+' Shared visual theme for all Fire Simulator UML diagrams
+skinparam dpi 140
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 13
+skinparam shadowing false
+skinparam backgroundColor #FFFFFF
+skinparam roundcorner 6
+skinparam ArrowColor #8A3B12
+skinparam ArrowFontColor #5A5A5A
+skinparam TitleFontSize 18
+skinparam TitleFontColor #7C2D12
+
+skinparam actor {
+  BackgroundColor #FDEDE0
+  BorderColor #C2410C
+}
+skinparam usecase {
+  BackgroundColor #FDEDE0
+  BorderColor #C2410C
+  FontColor #3A2A20
+}
+skinparam class {
+  BackgroundColor #FFF7F0
+  BorderColor #B45309
+  HeaderBackgroundColor #FDE4D0
+  AttributeFontColor #333333
+  FontColor #3A2A20
+}
+skinparam package {
+  BackgroundColor #FBFAF8
+  BorderColor #D0C4B8
+  FontColor #7C2D12
+}
+skinparam state {
+  BackgroundColor #FFF7F0
+  BorderColor #B45309
+  FontColor #3A2A20
+  AttributeFontColor #555555
+}
+skinparam sequence {
+  ParticipantBackgroundColor #FFF7F0
+  ParticipantBorderColor #B45309
+  ParticipantFontColor #3A2A20
+  ActorBackgroundColor #FDEDE0
+  ActorBorderColor #C2410C
+  LifeLineBorderColor #C2A48A
+  LifeLineBackgroundColor #FBEFE4
+  ArrowColor #8A3B12
+  GroupBackgroundColor #FDE4D0
+  GroupBorderColor #B45309
+}
+skinparam activity {
+  BackgroundColor #FFF7F0
+  BorderColor #B45309
+  DiamondBackgroundColor #FDE4D0
+  DiamondBorderColor #B45309
+  StartColor #C2410C
+  EndColor #3A3A3A
+  ArrowColor #8A3B12
+}
+skinparam note {
+  BackgroundColor #FEFCE8
+  BorderColor #CA8A04
+}
+
+' ---- Part C additions: class-diagram details and pattern roles ----
+skinparam classAttributeIconSize 0
+skinparam stereotypeCBackgroundColor #FDE4D0
+skinparam stereotypeIBackgroundColor #FFFFFF
+skinparam stereotypeEBackgroundColor #F5F2EF
+skinparam class {
+  StereotypeFontColor #9A3412
+  StereotypeFontSize 11
+  BackgroundColor<<interface>> #FFFFFF
+  BackgroundColor<<Strategy>> #FFFFFF
+  BackgroundColor<<Observer>> #FFFFFF
+  BackgroundColor<<Port>> #FFFFFF
+  BackgroundColor<<Repository>> #FFFFFF
+  BackgroundColor<<external>> #F3F4F6
+  BorderColor<<external>> #9CA3AF
+}
+skinparam note {
+  BackgroundColor #FFFBEB
+  BorderColor #D6A45C
+  FontSize 11
+}
+skinparam component {
+  BackgroundColor #FFF7F0
+  BorderColor #B45309
+  FontColor #3A2A20
+}
+skinparam node {
+  BackgroundColor #FBFAF8
+  BorderColor #B45309
+  FontColor #7C2D12
+}
+skinparam database {
+  BackgroundColor #FFF7F0
+  BorderColor #B45309
+}
