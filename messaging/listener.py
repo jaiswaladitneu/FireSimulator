@@ -22,15 +22,31 @@ class SuppressionListener:
         {"tick": <int>, "cells": [{"x": <int>, "y": <int>}, ...]}
 
     ``cells`` is required; any other fields are ignored so the contract can grow.
+    Cells without ``x`` or ``y`` are skipped, and a command with no valid cells does
+    nothing. ``SimulationEngine.apply_suppression`` queues the cells for its next tick.
+
+    Attributes:
+        bus: The message bus the listener is subscribed to.
+        engine: Receiver of the cells: any object with an ``apply_suppression(cells)``
+            method, e.g. a ``SimulationEngine``.
+        received: Total number of cells forwarded to the engine so far.
     """
 
     def __init__(self, bus: MessageBus, engine) -> None:
+        """Subscribe to ``TOPIC_SUPPRESSION`` on the bus.
+
+        Args:
+            bus: Message bus to listen on.
+            engine: Object whose ``apply_suppression`` method receives a list of ``(x, y)``
+                integer tuples.
+        """
         self.bus = bus
         self.engine = engine
         self.received = 0
         bus.subscribe(TOPIC_SUPPRESSION, self._on_suppression)
 
     def _on_suppression(self, payload: dict) -> None:
+        """Forward the valid cells of one suppression command to the engine."""
         cells = [
             (int(c["x"]), int(c["y"]))
             for c in payload.get("cells", [])

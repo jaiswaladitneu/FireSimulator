@@ -27,6 +27,24 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class KindProfile:
+    """Behaviour profile of one asset kind (an entry of ``PROFILES``); immutable.
+
+    Attributes:
+        label: Display name of the kind (e.g. ``"Shop / office"``).
+        presence: 24 fractions of the capacity on site, indexed by hour of day.
+        vulnerability: Weight of one person at risk in the priority score.
+        evac_rate: Fraction of the people still inside and able to leave who get out per tick
+            once the evacuation has started.
+        harm_rate: Fraction of the people still inside harmed per tick while the asset is fully
+            on fire (scaled by the share of it that is burning; applied in full on a road
+            blocked by fire).
+        hazard: Extra priority score for sites that make a fire worse (fuel, batteries).
+        trapped_fraction: Share of the people still inside counted as casualties if the asset
+            is destroyed (the rest count as evacuated).
+        reason: Short explanation shown among the asset's priority reasons.
+        delay: Ticks from the evacuation order to people starting to leave.
+        stay_fraction: Share of the occupants who cannot leave without a fire crew's help.
+    """
     label: str
     presence: tuple[float, ...]   # 24 values, index = hour of day
     vulnerability: float
@@ -120,5 +138,13 @@ BUILDING_KINDS = ("house", "commercial", "school", "hospital", "fuel_station",
 
 
 def presence(kind: str, hour: int) -> float:
-    """Fraction of an asset's capacity on site at the given hour (0-23)."""
+    """Fraction of an asset's capacity on site at the given hour (0-23).
+
+    Args:
+        kind: Asset kind, a key of ``PROFILES`` (e.g. ``"house"``).
+        hour: Hour of the day; converted with ``int`` and taken modulo 24.
+
+    Returns:
+        The value of the kind's ``presence`` curve at that hour.
+    """
     return PROFILES[kind].presence[int(hour) % 24]

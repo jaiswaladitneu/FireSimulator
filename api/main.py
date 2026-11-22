@@ -7,6 +7,14 @@ scenarios in a repository. A single active session is held for simplicity.
 City scenarios add the incident-command features: the town map, people at risk,
 priorities, fire-crew dispatch, and an incident history (Epic E6) that records
 every finished city incident for the admin dashboard.
+
+Module state: ``scenarios`` keeps the saved scenarios in memory, and ``incidents`` keeps the
+incident history in ``data/incidents.json`` under the repository folder (set the
+``FIRESIM_INCIDENTS_FILE`` environment variable to use another file, or to an empty value or
+``:memory:`` to keep it in memory). A re-entrant lock lets one request at a time touch the
+live session. Every route is also served under ``/api`` (``ApiPrefixMiddleware``), and the
+built UI is served from ``/`` when ``FIRESIM_STATIC_DIR`` names an existing folder
+(``mount_ui``).
 """
 from __future__ import annotations
 
@@ -107,12 +115,40 @@ _lock = threading.RLock()   # one request at a time touches the live session
 
 
 class IgnitionPointIn(BaseModel):
+    """A cell where the fire starts, as given in a scenario request.
+
+    Attributes:
+        x: Column index of the cell (x grows to the east).
+        y: Row index of the cell (y grows to the south).
+        tick: Tick of the ignition (default 0); it is stored with the scenario, but every
+            point is ignited when the simulation is built.
+    """
     x: int
     y: int
     tick: int = 0
 
 
 class ScenarioIn(BaseModel):
+    """Request body of ``POST /scenarios``: the parameters of a new scenario.
+
+    Attributes:
+        name: Display name of the scenario.
+        width: Map width in cells (1 to 400, default 200; city maps need at least 48).
+        height: Map height in cells (1 to 400, default 200; city maps need at least 48).
+        seed: Random seed (default 0); the same parameters and seed reproduce the same run.
+        wind_direction: Direction the wind blows toward, in degrees clockwise from north
+            (default 90, east).
+        wind_speed: Wind speed in km/h (default 15).
+        ignition_points: Cells where the fire starts; points outside the map or with nothing
+            to burn are ignored. A city scenario without any gets a default point upwind of
+            the town.
+        map_type: ``"wildland"`` (default) or ``"city"`` (a town with people and fire crews).
+        hour: Local hour the incident starts (0 to 23, default 14); in city scenarios it
+            drives how many people are in each building.
+        crews: Number of fire crews (0 to 12, default 4); city scenarios only.
+        auto_dispatch: Whether crews dispatch themselves to the top priorities from the start
+            (default False); city scenarios only.
+    """
     name: str
     width: int = Field(default=200, ge=1, le=400)
     height: int = Field(default=200, ge=1, le=400)
@@ -127,27 +163,62 @@ class ScenarioIn(BaseModel):
 
 
 class SpeedIn(BaseModel):
+    """Request body of ``POST /simulation/speed``.
+
+    Attributes:
+        speed: Playback speed, 0.25 to 16.0 (the UI requests this many ticks per second).
+    """
     speed: float = Field(ge=0.25, le=16.0)
 
 
 class CellIn(BaseModel):
+    """A grid cell to ignite or suppress.
+
+    Attributes:
+        x: Column index (x grows to the east).
+        y: Row index (y grows to the south).
+    """
     x: int
     y: int
 
 
 class SuppressIn(BaseModel):
+    """Request body of ``POST /simulation/suppress``.
+
+    Attributes:
+        cells: Cells to suppress on the next tick (default: none).
+    """
     cells: list[CellIn] = Field(default_factory=list)
 
 
 class DispatchIn(BaseModel):
+    """Request body of ``POST /simulation/dispatch``.
+
+    Attributes:
+        asset_id: Asset to protect: its ``id`` in the ``assets`` of ``GET /simulation/map``.
+    """
     asset_id: int
 
 
 class AutoDispatchIn(BaseModel):
+    """Request body of ``POST /simulation/auto-dispatch``.
+
+    Attributes:
+        enabled: True to turn automatic crew dispatch on, False to turn it off.
+    """
     enabled: bool
 
 
 class BatchIn(BaseModel):
+    """Request body of ``POST /incidents/simulate``: a batch of headless city incidents.
+
+    Attributes:
+        count: Number of incidents to run (1 to 20, default 5).
+        size: Side of each square town map, in cells (48 to 128, default 80).
+        max_ticks: Tick limit per run (50 to 3000, default 800); a run still burning at the
+            limit is recorded with outcome ``"time_limit"``.
+        seed: Seed for drawing the run conditions; None (default) draws new ones every time.
+    """
     count: int = Field(default=5, ge=1, le=20)
     size: int = Field(default=80, ge=48, le=128)
     max_ticks: int = Field(default=800, ge=50, le=3000)
@@ -155,6 +226,7 @@ class BatchIn(BaseModel):
 
 
 def _to_scenario(body: ScenarioIn) -> Scenario:
+    """Convert a scenario request body into an engine ``Scenario`` with a new id."""
     return Scenario(
         name=body.name, width=body.width, height=body.height, seed=body.seed,
         wind_direction=body.wind_direction, wind_speed=body.wind_speed,
@@ -165,6 +237,7 @@ def _to_scenario(body: ScenarioIn) -> Scenario:
 
 
 def _build(sc: Scenario) -> Session:
+    """Build a session for a scenario; a ``ValueError`` from the engine becomes HTTP 422."""
     try:
         return create_session(sc)
     except ValueError as exc:   # e.g. a city map smaller than the minimum size
@@ -173,12 +246,38 @@ def _build(sc: Scenario) -> Session:
 
 @app.get("/health")
 def health() -> dict:
+    """Report that the API is up.
+
+    A liveness check; it does not touch the simulation.
+
+    \f
+    Returns:
+        ``{"status": "ok"}``.
+    """
     return {"status": "ok"}
 
 
 # ---- scenarios ----------------------------------------------------------
 @app.post("/scenarios", status_code=201)
 def create_scenario(body: ScenarioIn) -> dict:
+    """Create a scenario and make it the active simulation.
+
+    Builds the map and engine and replaces any previous live session; the new simulation
+    starts idle at tick 0, and its run counts as a new incident. The scenario is also saved
+    so it can be listed and replayed. A city scenario without ignition points gets a default
+    ignition upwind of the town, and the saved scenario keeps the points actually used.
+
+    \f
+    Args:
+        body: Parameters of the new scenario.
+
+    Returns:
+        ``{"id": <scenario id>, "name": <scenario name>}``, with status 201.
+
+    Raises:
+        HTTPException: 422 if the engine rejects the scenario, e.g. a city map with a side
+            shorter than 48 cells; nothing is saved and the live session is kept.
+    """
     global _session, _started_at, _recorded_id
     sc = _to_scenario(body)
     session = _build(sc)
@@ -193,11 +292,34 @@ def create_scenario(body: ScenarioIn) -> dict:
 
 @app.get("/scenarios")
 def list_scenarios() -> list[dict]:
+    """List the saved scenarios.
+
+    Scenarios are kept in memory, so the list starts empty after an API restart.
+
+    \f
+    Returns:
+        One dict per scenario, in creation order, with ``id``, ``name`` and ``payload`` (the
+        parameters the scenario was created with).
+    """
     return [asdict(r) for r in scenarios.all()]
 
 
 @app.get("/scenarios/{scenario_id}")
 def get_scenario(scenario_id: str) -> dict:
+    """Get one saved scenario.
+
+    Returns its id, its name and the parameters it was created with.
+
+    \f
+    Args:
+        scenario_id: Id returned by ``POST /scenarios``.
+
+    Returns:
+        The scenario as ``{"id", "name", "payload"}``.
+
+    Raises:
+        HTTPException: 404 if no scenario has this id.
+    """
     rec = scenarios.find(scenario_id)
     if rec is None:
         raise HTTPException(status_code=404, detail="scenario not found")
@@ -206,6 +328,18 @@ def get_scenario(scenario_id: str) -> dict:
 
 @app.delete("/scenarios/{scenario_id}", status_code=204)
 def delete_scenario(scenario_id: str) -> None:
+    """Delete a saved scenario.
+
+    Only the saved record is removed; a live simulation built from it keeps running.
+    Responds with 204 No Content.
+
+    \f
+    Args:
+        scenario_id: Id of the scenario to delete.
+
+    Raises:
+        HTTPException: 404 if no scenario has this id.
+    """
     if not scenarios.delete(scenario_id):
         raise HTTPException(status_code=404, detail="scenario not found")
 
@@ -221,6 +355,26 @@ def replay_scenario(
     replays to the exact same sequence of states without the original live
     session. Each frame is the cell-state counts at that tick (plus people and
     buildings for city scenarios).
+
+    The replay uses only the saved parameters (including ignitions added before the first
+    tick); spot fires, dispatches, suppression and auto-dispatch changes made during the
+    live run are not replayed.
+
+    \f
+    Args:
+        scenario_id: Id of the saved scenario.
+        max_ticks: Maximum number of ticks to simulate (1 to 10000, default 2000).
+
+    Returns:
+        A dict with ``scenario_id``; ``ticks`` (ticks simulated); ``final_state``
+        (``"completed"`` if the fire went out, ``"running"`` if ``max_ticks`` was reached
+        first); and ``frames``, one for each tick from 0 to ``ticks``, each with ``tick`` and
+        ``counts`` (cells per state) plus, for city scenarios, ``city`` with ``at_risk``,
+        ``casualties``, ``evacuated`` and ``buildings_destroyed``.
+
+    Raises:
+        HTTPException: 404 if no scenario has this id; 422 if the engine rejects the saved
+            scenario.
     """
     rec = scenarios.find(scenario_id)
     if rec is None:
@@ -251,12 +405,14 @@ def replay_scenario(
 
 # ---- playback -----------------------------------------------------------
 def _require_session() -> Session:
+    """Return the active session; raise HTTP 409 if no scenario has been created yet."""
     if _session is None:
         raise HTTPException(status_code=409, detail="no active scenario; create one first")
     return _session
 
 
 def _require_city(session: Session):
+    """Return the session's city layer; raise HTTP 409 if it is a wildland scenario."""
     if session.city is None:
         raise HTTPException(status_code=409, detail="the active scenario is not a city scenario")
     return session.city
@@ -264,6 +420,19 @@ def _require_city(session: Session):
 
 @app.post("/simulation/play")
 def play() -> dict:
+    """Start or resume the active simulation.
+
+    An idle or paused simulation becomes running; in any other state nothing changes.
+    Playing does not advance time by itself: each ``POST /simulation/tick`` then advances
+    one tick.
+
+    \f
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     with _lock:
         s = _require_session()
         s.engine.start()
@@ -272,6 +441,17 @@ def play() -> dict:
 
 @app.post("/simulation/pause")
 def pause() -> dict:
+    """Pause the active simulation.
+
+    A running simulation becomes paused; in any other state nothing changes.
+
+    \f
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     with _lock:
         s = _require_session()
         s.engine.pause()
@@ -280,6 +460,19 @@ def pause() -> dict:
 
 @app.post("/simulation/step")
 def step() -> dict:
+    """Advance the active simulation by exactly one tick and leave it paused.
+
+    Works from idle, paused or running and does nothing once the incident is completed. If
+    the fire goes out on this tick the simulation completes instead, and a city incident is
+    recorded in the incident history.
+
+    \f
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     with _lock:
         s = _require_session()
         s.engine.step()
@@ -289,6 +482,19 @@ def step() -> dict:
 
 @app.post("/simulation/tick")
 def tick() -> dict:
+    """Advance the active simulation by one tick if it is running.
+
+    Clients call this repeatedly to play the simulation (the UI paces the calls by the
+    playback speed); when the simulation is not running nothing changes. When the fire goes
+    out, a city incident is recorded in the incident history.
+
+    \f
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     with _lock:
         s = _require_session()
         if s.engine.state == SimState.RUNNING:
@@ -299,6 +505,20 @@ def tick() -> dict:
 
 @app.post("/simulation/reset")
 def reset() -> dict:
+    """Reset the active simulation to its initial condition.
+
+    Goes back to tick 0 in the idle state with the starting fire (including ignitions added
+    before the first tick) and re-seeds the random generator; spot fires and queued
+    suppression are discarded. City scenarios also reset people, crews and the event log.
+    The next run is recorded as a new incident.
+
+    \f
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     global _started_at, _recorded_id
     with _lock:
         s = _require_session()
@@ -309,6 +529,22 @@ def reset() -> dict:
 
 @app.post("/simulation/speed")
 def speed(body: SpeedIn) -> dict:
+    """Set the playback speed of the active simulation.
+
+    The value is stored and reported as ``speed`` in the state payload. The server does not
+    advance time on its own; the UI uses the speed as the number of ticks to request per
+    second.
+
+    \f
+    Args:
+        body: The new speed (0.25 to 16.0).
+
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     with _lock:
         s = _require_session()
         s.engine.set_speed(body.speed)
@@ -317,13 +553,51 @@ def speed(body: SpeedIn) -> dict:
 
 @app.get("/simulation/state")
 def state() -> dict:
+    """Get the live state of the active simulation.
+
+    Every ``/simulation`` endpoint except ``GET /simulation/map`` returns this same payload.
+
+    \f
+    Returns:
+        A dict with ``state`` (``"idle"``, ``"running"``, ``"paused"`` or ``"completed"``),
+        ``tick``, ``speed``, ``counts`` (number of cells per state: ``unburned``,
+        ``igniting``, ``burning``, ``burned``, ``suppressed``), ``grid`` (``height`` rows of
+        ``width`` cell-state codes: 0 unburned, 1 igniting, 2 burning, 3 burned,
+        4 suppressed), ``map_type``, ``scenario`` (``id`` and ``name``), ``wind``
+        (``direction`` the wind blows toward, in degrees from north, and ``speed`` in km/h),
+        ``incident_id`` (id of this run's history record, or None until it is recorded) and
+        ``city`` (for city scenarios the town's dynamic state: clock, population and
+        building totals, per-asset arrays, priorities, crews, recent events and hazards;
+        None for wildland).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     with _lock:
         return _state_payload(_require_session())
 
 
 @app.get("/simulation/map")
 def simulation_map() -> dict:
-    """The static map (land use, fuel, elevation, assets). Fetch once per scenario."""
+    """The static map (land use, fuel, elevation, assets). Fetch once per scenario.
+
+    Wildland maps have no assets, fire station, crews or asset kinds, and their land use is
+    derived from the fuel layer.
+
+    \f
+    Returns:
+        A dict with ``map_type``, ``width``, ``height``, ``cell_size_m`` (10), ``landuse``,
+        ``fuel`` and ``elevation`` (``height`` rows of ``width`` values: land-use codes,
+        fuel codes and elevation rounded to 3 decimals), ``assets`` (one dict per building,
+        park or road segment with ``id``, ``kind``, ``name``, ``street``, ``x``, ``y``,
+        ``w``, ``h``, ``floors``, ``capacity``, ``parts`` and ``occupants0``, the people
+        present at the start), ``station`` (``{"x", "y"}`` of the fire station, or None),
+        ``crews`` (``id`` and ``name`` of each crew), ``hour`` and ``kinds`` (label,
+        vulnerability and hazard of each asset kind).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     with _lock:
         s = _require_session()
         if s.city is not None:
@@ -339,7 +613,22 @@ def simulation_map() -> dict:
 
 @app.post("/simulation/ignite")
 def ignite(body: CellIn) -> dict:
-    """Start a fire at a cell. Before the first tick it becomes part of the scenario."""
+    """Start a fire at a cell. Before the first tick it becomes part of the scenario.
+
+    At tick 0 the cell is added to the scenario's ignition points, so resets and replays
+    keep it; later it is a spot fire, which a reset removes.
+
+    \f
+    Args:
+        body: The cell to ignite.
+
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario or the incident is closed (reset
+            first); 422 if the cell is outside the map or has nothing to burn.
+    """
     with _lock:
         s = _require_session()
         eng = s.engine
@@ -364,7 +653,22 @@ def ignite(body: CellIn) -> dict:
 
 @app.post("/simulation/suppress")
 def suppress(body: SuppressIn) -> dict:
-    """Queue suppression on cells (same effect as a bus suppression command)."""
+    """Queue suppression on cells (same effect as a bus suppression command).
+
+    The cells are treated on the next tick: those inside the map that are unburned,
+    igniting or burning become suppressed, the others are ignored. The returned state does
+    not show them yet.
+
+    \f
+    Args:
+        body: The cells to suppress.
+
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     with _lock:
         s = _require_session()
         s.engine.apply_suppression([(c.x, c.y) for c in body.cells])
@@ -373,7 +677,23 @@ def suppress(body: SuppressIn) -> dict:
 
 @app.post("/simulation/dispatch")
 def dispatch(body: DispatchIn) -> dict:
-    """Send the nearest available fire crew to an asset."""
+    """Send the nearest available fire crew to an asset.
+
+    City scenarios only. The nearest free crew (city-block distance) travels there, then
+    works at the asset for a limited number of ticks, suppressing fire in and around it and
+    helping people get out.
+
+    \f
+    Args:
+        body: The asset to protect.
+
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 404 if the asset does not exist; 409 if there is no active scenario,
+            it is not a city scenario, the incident is closed or no crew is available.
+    """
     with _lock:
         s = _require_session()
         city = _require_city(s)
@@ -389,6 +709,22 @@ def dispatch(body: DispatchIn) -> dict:
 
 @app.post("/simulation/auto-dispatch")
 def auto_dispatch(body: AutoDispatchIn) -> dict:
+    """Turn automatic crew dispatch on or off.
+
+    City scenarios only. While it is on, before every tick the most urgent assets that no
+    crew is assigned to get the nearest free crew, in priority order; low-priority assets
+    are skipped. The change is written to the incident's event log.
+
+    \f
+    Args:
+        body: Whether automatic dispatch should be on.
+
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario or it is not a city scenario.
+    """
     with _lock:
         s = _require_session()
         _require_city(s).set_auto_dispatch(body.enabled)
@@ -397,7 +733,19 @@ def auto_dispatch(body: AutoDispatchIn) -> dict:
 
 @app.post("/simulation/end")
 def end_incident() -> dict:
-    """Close the incident now and record it in the history (city scenarios)."""
+    """Close the incident now and record it in the history (city scenarios).
+
+    The simulation becomes completed whatever its state. A city incident that has run at
+    least one tick and is not recorded yet is saved with outcome ``"stopped"``, and its id
+    appears as ``incident_id`` in the returned state. Wildland scenarios are only stopped.
+
+    \f
+    Returns:
+        The live state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
     global _recorded_id
     with _lock:
         s = _require_session()
@@ -408,6 +756,7 @@ def end_incident() -> dict:
 
 
 def _state_payload(s: Session) -> dict:
+    """Build the live state payload returned by ``GET /simulation/state`` and the controls."""
     eng = s.engine
     return {
         "state": eng.state.value,
@@ -425,6 +774,7 @@ def _state_payload(s: Session) -> dict:
 
 # ---- incident history (admin dashboard) -----------------------------------
 def _params(s: Session) -> dict:
+    """Collect the scenario parameters stored with an incident record."""
     sc = s.scenario
     return {
         "map_type": sc.map_type, "width": sc.width, "height": sc.height, "seed": sc.seed,
@@ -436,6 +786,7 @@ def _params(s: Session) -> dict:
 
 
 def _record(s: Session, outcome: str, source: str, started_at: float) -> IncidentRecord:
+    """Save a city session's incident to the history and return the new record."""
     rec = IncidentRecord(
         id=str(uuid.uuid4()), name=s.scenario.name, scenario_id=s.scenario.id,
         source=source, outcome=outcome, started_at=started_at, ended_at=time.time(),
@@ -459,12 +810,39 @@ _COMPASS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 @app.get("/incidents")
 def list_incidents() -> list[dict]:
+    """List the incident history, newest first.
+
+    Each entry is a brief record without the per-tick timeline and key events; get them
+    with ``GET /incidents/{incident_id}``.
+
+    \f
+    Returns:
+        One dict per incident (``IncidentRecord.brief``) with ``id``, ``name``,
+        ``scenario_id``, ``source``, ``outcome``, ``started_at``, ``ended_at``, ``ticks``,
+        ``params`` and ``summary`` (without ``timeline`` and ``key_events``).
+    """
     with _lock:
         return [r.brief() for r in incidents.all()]
 
 
 @app.get("/incidents/{incident_id}")
 def get_incident(incident_id: str) -> dict:
+    """Get one incident from the history, including its timeline and key events.
+
+    Returns the full record: run parameters, outcome and the complete summary (people,
+    buildings, losses, key events and the per-tick timeline).
+
+    \f
+    Args:
+        incident_id: Id of the incident.
+
+    Returns:
+        The full ``IncidentRecord`` as a dict: the same keys as a ``GET /incidents`` entry,
+        with the complete ``summary``.
+
+    Raises:
+        HTTPException: 404 if no incident has this id.
+    """
     with _lock:
         rec = incidents.find(incident_id)
     if rec is None:
@@ -474,6 +852,17 @@ def get_incident(incident_id: str) -> dict:
 
 @app.delete("/incidents/{incident_id}", status_code=204)
 def delete_incident(incident_id: str) -> None:
+    """Delete one incident from the history.
+
+    Responds with 204 No Content.
+
+    \f
+    Args:
+        incident_id: Id of the incident to delete.
+
+    Raises:
+        HTTPException: 404 if no incident has this id.
+    """
     with _lock:
         if not incidents.delete(incident_id):
             raise HTTPException(status_code=404, detail="incident not found")
@@ -481,6 +870,14 @@ def delete_incident(incident_id: str) -> None:
 
 @app.delete("/incidents")
 def clear_incidents() -> dict:
+    """Delete every incident from the history.
+
+    Returns how many incidents were deleted.
+
+    \f
+    Returns:
+        ``{"deleted": <number of incidents deleted>}``.
+    """
     with _lock:
         return {"deleted": incidents.clear()}
 
@@ -491,6 +888,22 @@ def simulate_incidents(body: BatchIn) -> list[dict]:
 
     Each run is a real simulation (random seed, wind, time of day, crews and
     response mode); the parameters are stored, so every run can be replayed.
+
+    The conditions are drawn from a generator seeded with ``seed``: repeating a request with
+    the same seed and settings gives runs with the same conditions and outcomes, and without
+    a seed every request differs. The live simulation is not affected.
+
+    \f
+    Args:
+        body: Number of runs, town size, tick limit per run and optional seed.
+
+    Returns:
+        One brief record per run, in run order (same shape as the ``GET /incidents``
+        entries), each with source ``"simulated"`` and outcome ``"extinguished"`` or
+        ``"time_limit"``; the response status is 201.
+
+    Raises:
+        HTTPException: 422 if the engine rejects a generated scenario.
     """
     rng = np.random.default_rng(body.seed)
     out = []

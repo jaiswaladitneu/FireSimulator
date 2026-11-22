@@ -36,15 +36,58 @@ def _shift(a: np.ndarray, dy: int, dx: int) -> np.ndarray:
 
 
 class SpreadModel(Protocol):
+    """Strategy interface for the fire-spread algorithm.
+
+    ``SimulationEngine`` calls ``ignition_probability`` once per tick and sets each
+    ``UNBURNED`` cell to ``IGNITING`` when a uniform random draw falls below the cell's
+    probability. Any class with a matching method can be used.
+    """
+
     def ignition_probability(self, grid: Grid, wind: Wind) -> np.ndarray:
-        """Per-cell probability of igniting this tick (shape = grid shape)."""
+        """Per-cell probability of igniting this tick (shape = grid shape).
+
+        Args:
+            grid: The grid to evaluate (cell states, fuel, moisture and elevation).
+            wind: The current wind.
+
+        Returns:
+            Array of shape ``(height, width)`` with each cell's probability (0..1) of
+            catching fire this tick. The engine uses it only for ``UNBURNED`` cells.
+        """
         ...
 
 
 class PhysicsSpreadModel:
-    """Default spread strategy."""
+    """Default spread strategy.
+
+    Concrete Strategy for ``SpreadModel``: every burning cell may ignite each of its 8
+    neighbours, with a probability driven by the neighbour's fuel and moisture, the wind and
+    the slope. The engine uses it unless another model is given (wildland scenarios).
+    """
 
     def ignition_probability(self, grid: Grid, wind: Wind) -> np.ndarray:
+        """Compute each cell's chance of being ignited by its burning neighbours this tick.
+
+        Each burning neighbour ignites the cell independently with probability
+        ``p = BASE_P * susceptibility * wind_factor * slope_factor``, capped at ``MAX_P``,
+        and the result is ``1 - prod(1 - p)`` over the burning neighbours, where:
+
+        * ``susceptibility`` is the cell's ``FUEL_FLAMMABILITY`` times ``1 - moisture``
+          (clipped to 0..1);
+        * ``wind_factor = 1 + WIND_K * wind.speed_norm * alignment`` (clipped to 0.1..3),
+          with ``alignment`` the cosine between the wind direction and the direction from
+          the neighbour to the cell;
+        * ``slope_factor = 1 + SLOPE_K * tanh(rise / 0.2)`` (clipped to 0.3..2), with
+          ``rise`` the cell's elevation minus the neighbour's, so uphill spread is faster.
+
+        Args:
+            grid: The grid; reads ``state``, ``fuel``, ``moisture`` and ``elevation``.
+            wind: The wind; its direction and normalized speed set the wind factor.
+
+        Returns:
+            ``float32`` array of shape ``(height, width)`` with values from 0 to 1; cells
+            without a burning neighbour get 0.
+        """
         burning = (grid.state == CellState.BURNING).astype(np.float32)
 
         # Susceptibility of each destination cell from its fuel and moisture.
@@ -110,9 +153,29 @@ class UrbanSpreadModel(PhysicsSpreadModel):
       batteries) radiate more heat than vegetation, so they ignite neighbours faster.
     * **Ember spotting** — wind carries embers 2-4 cells downwind, so fire can jump
       roads and rivers, which is how most homes catch fire in real urban wildfires.
+
+    Concrete Strategy for ``SpreadModel``; ``create_session`` uses it for city scenarios.
     """
 
     def ignition_probability(self, grid: Grid, wind: Wind) -> np.ndarray:
+        """Compute each cell's ignition chance from neighbour spread and ember spotting.
+
+        Neighbour spread uses the default model's formula, with each burning neighbour's
+        ``p`` multiplied by the ``FUEL_INTENSITY`` of its fuel before the ``MAX_P`` cap.
+        When ``wind.speed_norm`` is at least ``MIN_SPOT_WIND`` (4 km/h), burning cells 2-4
+        cells away whose direction to the cell is within about 45 degrees of the wind
+        (``alignment >= SPOT_ALIGN``) add an ember chance of
+        ``SPOT_BASE * speed_norm * alignment * susceptibility * intensity / distance``.
+
+        Args:
+            grid: The grid; reads ``state``, ``fuel``, ``moisture`` and ``elevation``.
+            wind: The wind; it sets the wind factor and the direction and strength of ember
+                spotting.
+
+        Returns:
+            ``float32`` array of shape ``(height, width)`` with values from 0 to 1 (all
+            zeros when nothing is burning).
+        """
         burning = grid.state == CellState.BURNING
         if not burning.any():
             return np.zeros(grid.state.shape, dtype=np.float32)

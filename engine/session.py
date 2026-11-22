@@ -22,13 +22,34 @@ from .wind import Wind
 
 @dataclass
 class Session:
+    """A ready-to-run simulation built by ``create_session``.
+
+    Attributes:
+        scenario: The scenario the session was built from.
+        engine: The engine that advances the fire.
+        city: The city layer (people, risk, fire crews), attached to ``engine`` as a tick
+            observer; None for wildland scenarios.
+    """
     scenario: Scenario
     engine: SimulationEngine
     city: CityModel | None = None
 
 
 def default_ignition(city: CityMap, wind: Wind) -> IgnitionPoint:
-    """A burnable wildland cell upwind of the town, so the fire runs toward it."""
+    """A burnable wildland cell upwind of the town, so the fire runs toward it.
+
+    It picks the grass, shrub or forest cell outside the town (and outside a one-cell margin
+    around it) that is nearest to a target point upwind of the town centre, at 0.75 times
+    half the town's diagonal plus 5 cells.
+
+    Args:
+        city: The generated town; its ``town`` rectangle and ``grid`` are used.
+        wind: The scenario's wind; only its direction matters.
+
+    Returns:
+        The chosen cell as an ``IgnitionPoint`` (tick 0), or the town centre if there is no
+        such wildland cell.
+    """
     x0, y0, x1, y1 = city.town
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
     we, wn = wind.vector()
@@ -47,8 +68,25 @@ def default_ignition(city: CityMap, wind: Wind) -> IgnitionPoint:
 
 
 def create_session(sc: Scenario, *, publisher=None) -> Session:
-    """Build the session. For a city scenario without ignition points, a default
-    upwind ignition is chosen and written back to ``sc.ignition_points``."""
+    """Build the session.
+
+    A scenario whose ``map_type`` is not ``"city"`` gets a plain engine from
+    ``SimulationEngine.from_scenario``. A city scenario gets an engine on a procedural town
+    with ``UrbanSpreadModel`` and its ignition points set alight, plus a ``CityModel``
+    attached to the engine as a tick observer. For a city scenario without ignition points,
+    a default upwind ignition is chosen and written back to ``sc.ignition_points``.
+
+    An out-of-range map size raises ``ValueError`` from the map generator or ``Grid`` (for
+    example a city map smaller than 48 x 48 cells).
+
+    Args:
+        sc: The scenario to build; a city scenario may get a default ignition point.
+        publisher: Optional event publisher passed to the engine (see
+            ``SimulationEngine.publisher``); None disables event publishing.
+
+    Returns:
+        The new ``Session``; its ``city`` is None for wildland scenarios.
+    """
     if sc.map_type != "city":
         return Session(sc, SimulationEngine.from_scenario(sc, publisher=publisher))
     cmap = CityMapGenerator.generate(sc.width, sc.height, sc.seed)

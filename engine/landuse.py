@@ -14,6 +14,29 @@ from .cell import FuelType
 
 
 class LandUse(IntEnum):
+    """What a cell is (road, house, park, ...), as a code in a land-use layer.
+
+    City maps store the layer in ``CityMap.landuse``; wildland maps derive it with
+    ``landuse_from_fuel``. How a cell burns comes from its ``FuelType``, not its land use.
+
+    Attributes:
+        WATER: River or pond (``landuse_from_fuel`` also maps fuel-free cells here); nothing
+            burns.
+        ROAD: Street or highway; nothing burns.
+        PAVED: Parking lot, plaza or station apron; nothing burns.
+        GRASS: Open wild grassland.
+        SHRUB: Shrubland.
+        FOREST: Forest.
+        LAWN: Yard or school field.
+        PARK: Park grounds.
+        HOUSE: House.
+        COMMERCIAL: Shop, office or other commercial building.
+        SCHOOL: School building.
+        HOSPITAL: Hospital building.
+        FUEL_STATION: Fuel station (kiosk and pump canopy).
+        BATTERY: Battery-storage site (containers and control building).
+        FIRE_STATION: Fire station building.
+    """
     WATER = 0
     ROAD = 1
     PAVED = 2          # parking lots, plazas, station aprons
@@ -32,7 +55,16 @@ class LandUse(IntEnum):
 
 
 def landuse_from_fuel(fuel: np.ndarray) -> np.ndarray:
-    """Land use for a wildland map, derived from its fuel layer."""
+    """Land use for a wildland map, derived from its fuel layer.
+
+    Args:
+        fuel: Array of ``FuelType`` codes (usually ``Grid.fuel``).
+
+    Returns:
+        An ``int8`` array of ``LandUse`` codes with the same shape as ``fuel``: ``NONE``
+        becomes ``WATER``, ``SHRUB`` becomes ``SHRUB``, ``FOREST`` becomes ``FOREST`` and
+        every other fuel becomes ``GRASS``.
+    """
     lu = np.full(fuel.shape, LandUse.GRASS, dtype=np.int8)
     lu[fuel == FuelType.NONE] = LandUse.WATER
     lu[fuel == FuelType.SHRUB] = LandUse.SHRUB

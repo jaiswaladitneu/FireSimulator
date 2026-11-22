@@ -40,6 +40,7 @@ _CRITICAL_KINDS = {KIND_INDEX[k] for k in ("school", "hospital", "fuel_station",
 
 
 def _dilate(m: np.ndarray) -> np.ndarray:
+    """Grow a 2-D boolean mask by one cell in all eight directions."""
     g = m.copy()
     g[1:, :] |= m[:-1, :]
     g[:-1, :] |= m[1:, :]
@@ -53,7 +54,17 @@ def _dilate(m: np.ndarray) -> np.ndarray:
 
 
 def chebyshev_distance(mask: np.ndarray, max_d: int) -> np.ndarray:
-    """Distance (in cells, 8-neighbour steps) to the nearest True cell, capped at max_d + 1."""
+    """Distance (in cells, 8-neighbour steps) to the nearest True cell, capped at max_d + 1.
+
+    Args:
+        mask: 2-D boolean array whose True cells are the sources (e.g. burning cells).
+        max_d: Largest distance to compute; cells farther away get ``max_d + 1``.
+
+    Returns:
+        ``int16`` array with the shape of ``mask``: 0 on True cells, the number of steps up to
+        ``max_d`` elsewhere, ``max_d + 1`` beyond that (everywhere if ``mask`` has no True
+        cell).
+    """
     dist = np.full(mask.shape, max_d + 1, dtype=np.int16)
     if not mask.any():
         return dist
@@ -71,10 +82,12 @@ def chebyshev_distance(mask: np.ndarray, max_d: int) -> np.ndarray:
 
 
 def _plural(n: int, word: str, plural: str | None = None) -> str:
+    """Format a count followed by the singular or plural form of a word."""
     return f"{n} {word if n == 1 else (plural or word + 's')}"
 
 
 def _downsample(rows: list[dict], limit: int) -> list[dict]:
+    """Return at most ``limit`` evenly spread rows, keeping the first and the last."""
     if len(rows) <= limit:
         return list(rows)
     step = len(rows) / float(limit - 1)
@@ -83,6 +96,93 @@ def _downsample(rows: list[dict], limit: int) -> list[dict]:
 
 
 class CityModel:
+    """City layer of one town: people, asset status, priorities and fire crews.
+
+    Concrete Observer of ``SimulationEngine``: it implements the ``TickObserver`` hooks
+    (``before_tick``, ``after_tick``, ``on_reset``) and ``attach`` registers it. Per-asset
+    values are NumPy arrays of length ``n`` indexed by asset id. One tick is one simulated
+    minute. People are conserved: ``occ + evac + cas == occ0`` for every asset.
+
+    Asset status, by precedence: ``burning`` if any of its cells is burning or igniting;
+    ``destroyed`` if at least half of its burnable cells have burned out, ``damaged`` if some
+    have; ``blocked`` if it has nothing to burn (roads) and fire is within 1 cell;
+    ``threatened`` if fire is within ``THREAT_R``; otherwise ``safe``.
+
+    Priority score: ``threat * (lives + hazard) * wind_factor``, 0 for a destroyed asset.
+    ``threat`` is 1 for a burning or blocked asset and otherwise falls linearly with the fire
+    distance, to 0 beyond ``ALERT_R``; ``lives`` is the people at risk times the kind's
+    vulnerability, those needing rescue counted three times; ``hazard`` is the kind's hazard
+    until the site explodes; ``wind_factor`` (1 to 1.6) raises assets downwind of the fire's
+    centre. Level ``critical``: people at risk in a burning asset, an unexploded hazardous
+    site within 3 cells of fire, or a score of at least 250; ``high``: 80 or more;
+    ``medium``: 20 or more; else ``low``. ``priorities`` lists up to 15 assets with a
+    positive score, ordered by level, then by score.
+
+    Attributes:
+        ALERT_R: Evacuation is ordered, and people count as at risk, when fire is this close
+            (cells).
+        THREAT_R: An asset is threatened when fire is this close (cells).
+        D_MAX: Largest fire distance tracked (cells); anything farther reads ``D_MAX + 1``.
+        EXPLOSION_R: Unburned fuel within this many cells of an exploding fuel station's
+            site is set alight.
+        CREW_EVAC_BOOST: Extra evacuation rate while a crew works at the asset.
+        RESCUE_RATE: Share of the people needing help that a working crew gets out per tick.
+        MAX_EVENTS: Most entries kept in ``events``; older ones are dropped.
+        map: The town this model runs on.
+        assets: The town's assets, indexed by asset id.
+        asset_id: ``(H, W)`` asset id of every cell, -1 where there is none.
+        hour: Hour of day (0-23) at which the incident starts.
+        n: Number of assets.
+        kind: Kind index of every asset (``population.KIND_INDEX``).
+        vuln: Vulnerability of every asset, from its kind profile.
+        evac_rate: Evacuation rate of every asset, from its kind profile.
+        harm_rate: Harm rate of every asset, from its kind profile.
+        hazard: Hazard score of every asset, from its kind profile.
+        trapped_fraction: Share lost if destroyed, for every asset, from its kind profile.
+        capacity: Capacity (people) of every asset.
+        occ0: People on site at the start, drawn at random (seeded) from the capacity and
+            the presence at ``hour``.
+        stay0: Of ``occ0``, the people who cannot leave without help.
+        delay: Reaction delay (ticks) of every asset; doubled for homes when ``hour`` is in
+            ``population.NIGHT_HOURS``.
+        burnable: Number of burnable cells of every asset.
+        has_fuel: True where the asset has at least one burnable cell.
+        is_fuel_station: True for fuel stations.
+        is_battery: True for battery-storage sites.
+        is_building: True for building kinds (``population.BUILDING_KINDS``).
+        centers: ``(n, 2)`` array of asset centres ``(x, y)``, in cells.
+        response: The fire crews (``ResponseManager``).
+        engine: The engine being observed; ``None`` until ``attach``.
+        occ: People still inside every asset.
+        stay: Of ``occ``, the people who cannot leave without help.
+        evac: People who got out of every asset alive (including the survivors of an asset
+            that is destroyed).
+        cas: Estimated casualties of every asset.
+        alerted: True once evacuation has been ordered for the asset.
+        alert_tick: Tick at which evacuation was ordered; -1 before that.
+        needs_rescue: People at risk who cannot leave without help; 0 where not at risk.
+        status: Status code of every asset (index into ``STATUS_NAMES``).
+        dist: Distance (cells, 8-neighbour steps) from the asset's cells to the nearest
+            burning or igniting cell; ``D_MAX + 1`` if farther.
+        n_burning: Burning or igniting cells of every asset.
+        burn_frac: Share of the asset's burnable cells that are burning or igniting.
+        burned_frac: Share of the asset's burnable cells that have burned out.
+        at_risk: People inside an asset with fire within ``ALERT_R`` or on site (unless it
+            is destroyed); 0 elsewhere.
+        exploded: True for fuel stations that have exploded.
+        hazmat_fired: True once a hazardous site has gone off (battery thermal runaway or
+            fuel-station explosion).
+        events: Event log, oldest first (see ``log`` for the entry keys).
+        timeline: One row per tick (a refresh replaces its tick's row) with ``t``,
+            ``burning``, ``burned``, ``at_risk``, ``casualties``, ``evacuated``,
+            ``bld_burning`` and ``bld_destroyed``.
+        priorities: Up to 15 assets to protect, most urgent first (see ``dynamic_payload``).
+        peak_at_risk: Most people at risk at once so far.
+        peak_burning_buildings: Most buildings burning at once so far.
+        active_cells: Grid cells burning or igniting now.
+        burned_cells: Grid cells burned out.
+        tick: Current engine tick (0 before ``attach``).
+    """
     ALERT_R = 8      # evacuation is ordered when fire comes this close (cells)
     THREAT_R = 6     # asset counts as threatened within this distance
     D_MAX = 12       # distances beyond this are not tracked
@@ -93,6 +193,19 @@ class CityModel:
 
     def __init__(self, city: CityMap, *, hour: int = 14, crews: int = 4,
                  auto_dispatch: bool = False, seed: int = 0) -> None:
+        """Create the city layer for a town and draw who is on site at the start hour.
+
+        Call ``attach`` to connect it to an engine.
+
+        Args:
+            city: The generated town.
+            hour: Hour of day at which the incident starts; taken modulo 24. It sets how many
+                people are on site and whether homes react with the night-time delay.
+            crews: Number of fire crews (clamped to 0..12 by ``ResponseManager``).
+            auto_dispatch: Start with automatic crew dispatch enabled.
+            seed: Seed for drawing the occupants; with ``hour`` it fixes who is where, so
+                runs are reproducible.
+        """
         self.map = city
         self.assets = city.assets
         self.asset_id = city.asset_id
@@ -136,11 +249,20 @@ class CityModel:
 
     # ---- lifecycle --------------------------------------------------------
     def attach(self, engine: SimulationEngine) -> None:
+        """Register as an observer of an engine and compute the initial state.
+
+        Statuses, fire distances and priorities are computed for the current grid; no time
+        passes and nobody moves.
+
+        Args:
+            engine: The engine running the fire on this town's grid.
+        """
         self.engine = engine
         engine.add_observer(self)
         self._update(engine.grid, advance=False)
 
     def _reset_state(self) -> None:
+        """Restore the starting occupants and clear the run's state, logs and crews."""
         n = self.n
         self.occ = self.occ0.copy()
         self.stay = self.stay0.copy()
@@ -171,14 +293,43 @@ class CityModel:
 
     # ---- engine observer hooks ----------------------------------------------
     def before_tick(self, engine: SimulationEngine) -> None:
+        """Let the fire crews act at the start of a tick (Observer hook).
+
+        Moves the crews (dispatching automatically if enabled) and queues the cells they
+        treat with ``engine.apply_suppression``; the engine applies them in the same tick.
+
+        Args:
+            engine: The engine that is about to advance.
+        """
         cells = self.response.step(self, engine.grid)
         if cells:
             engine.apply_suppression(cells)
 
     def after_tick(self, engine: SimulationEngine) -> None:
+        """Update the town after the fire has advanced one tick (Observer hook).
+
+        Recomputes every asset's status and fire distance, then moves people: evacuation
+        after each asset's reaction delay, rescues by working crews, harm in burning assets
+        and on blocked roads, and losses in destroyed assets. Fuel stations explode (setting
+        the fuel around them alight) and battery sites go into thermal runaway the first
+        time their hazardous cells burn. Priorities, the event log and the timeline are
+        updated too.
+
+        Args:
+            engine: The engine that has just advanced.
+        """
         self._update(engine.grid, advance=True)
 
     def on_reset(self, engine: SimulationEngine) -> None:
+        """Return the town to the start of the incident after an engine reset (Observer hook).
+
+        Restores the starting occupants, clears evacuations, casualties, alerts, the event
+        log and the timeline, puts fresh crews at the station, then recomputes the statuses
+        for the reset grid.
+
+        Args:
+            engine: The engine that has just been reset.
+        """
         self._reset_state()
         self._update(engine.grid, advance=False)
 
@@ -189,11 +340,32 @@ class CityModel:
             self._update(self.engine.grid, advance=False)
 
     def dispatch(self, asset_id: int):
+        """Send the nearest available fire crew to an asset.
+
+        Delegates to ``ResponseManager.dispatch``, which also logs the dispatch.
+
+        Args:
+            asset_id: Id of the asset to protect (index into ``assets``).
+
+        Returns:
+            The dispatched ``Crew``, or ``None`` if every crew is busy.
+
+        Raises:
+            IndexError: When ``asset_id`` is not between 0 and ``n - 1``.
+        """
         if not 0 <= asset_id < self.n:
             raise IndexError("unknown asset")
         return self.response.dispatch(asset_id, self)
 
     def set_auto_dispatch(self, enabled: bool) -> None:
+        """Turn automatic crew dispatch on or off and log the change.
+
+        While it is on, every tick sends free crews to the most urgent priorities that have
+        no crew yet (any level except ``low``).
+
+        Args:
+            enabled: True to turn automatic dispatch on, False to turn it off.
+        """
         self.response.auto = bool(enabled)
         state = "enabled" if enabled else "disabled"
         self.log("auto", f"Automatic dispatch {state}", None, "info")
@@ -201,13 +373,37 @@ class CityModel:
     # ---- helpers ---------------------------------------------------------------
     @property
     def tick(self) -> int:
+        """Current engine tick, i.e. simulated minutes since the start (0 before ``attach``)."""
         return self.engine.tick if self.engine is not None else 0
 
     def clock(self, tick: int | None = None) -> str:
+        """Format the simulated time of day at a tick.
+
+        The incident starts at ``hour``:00 and each tick is one minute.
+
+        Args:
+            tick: Tick to convert; ``None`` means the current tick.
+
+        Returns:
+            The time as ``"HH:MM"`` on a 24-hour clock, wrapping past midnight.
+        """
         minutes = self.hour * 60 + (self.tick if tick is None else tick)
         return f"{(minutes // 60) % 24:02d}:{minutes % 60:02d}"
 
     def log(self, kind: str, message: str, asset_id: int | None, severity: str) -> None:
+        """Append an event to the incident log.
+
+        The entry is a dict with ``tick``, ``clock``, ``type``, ``message``, ``asset_id`` and
+        ``severity``. Only the newest ``MAX_EVENTS`` entries are kept.
+
+        Args:
+            kind: Event type, stored under ``type`` (e.g. ``"fire"``, ``"evacuation"``,
+                ``"dispatch"``).
+            message: Human-readable description.
+            asset_id: Asset the event is about, or ``None`` for a town-wide event.
+            severity: ``"info"``, ``"warning"`` or ``"critical"``; only critical events are
+                kept as key events by ``incident_summary``.
+        """
         self.events.append({
             "tick": self.tick, "clock": self.clock(), "type": kind, "message": message,
             "asset_id": asset_id, "severity": severity,
@@ -217,6 +413,7 @@ class CityModel:
 
     # ---- the per-tick update -----------------------------------------------------
     def _update(self, grid: Grid, *, advance: bool) -> None:
+        """Recompute every asset from the grid; ``advance`` also moves people and logs events."""
         n = self.n
         state = grid.state
         active = (state == CellState.IGNITING) | (state == CellState.BURNING)
@@ -334,6 +531,7 @@ class CityModel:
         })
 
     def _explode(self, grid: Grid, i: int) -> None:
+        """Set alight the unburned fuel around fuel station ``i`` and log the explosion."""
         a = self.assets[i]
         r = self.EXPLOSION_R
         x0, y0 = max(0, a.x - r), max(0, a.y - r)
@@ -345,6 +543,7 @@ class CityModel:
                  f"{r * CELL_SIZE_M} m, {int(catch.sum())} new spot fires", i, "critical")
 
     def _score(self, active: np.ndarray) -> None:
+        """Score every asset and rebuild ``priorities`` (rules in the class docstring)."""
         dist = self.dist.astype(np.float64)
         burning_or_blocked = (self.n_burning > 0) | (self.status == BLOCKED)
         threat = np.clip((self.ALERT_R + 1 - dist) / (self.ALERT_R + 1), 0.0, 1.0)
@@ -419,6 +618,7 @@ class CityModel:
 
     def _events(self, prev: np.ndarray, status: np.ndarray, newly_alerted: np.ndarray,
                 harm: np.ndarray, lost: np.ndarray) -> None:
+        """Log this tick's evacuation, fire, loss, casualty and road-closure events."""
         kind = self.kind
         houses = kind == _HOUSE
         roads = kind == _ROAD
@@ -487,6 +687,20 @@ class CityModel:
 
     # ---- payloads ------------------------------------------------------------------
     def population(self) -> dict:
+        """Count the town's people at the current tick.
+
+        Returns:
+            A dict of head counts:
+
+            - ``total``: people on site when the incident started.
+            - ``present``: people still inside assets.
+            - ``at_risk``: people inside assets at risk (see ``at_risk``).
+            - ``needs_rescue``: people at risk who cannot leave without a crew.
+            - ``in_danger``: people still inside burning assets or on blocked roads.
+            - ``evacuated``: people who got out.
+            - ``casualties``: estimated casualties.
+            - ``peak_at_risk``: most people at risk at once so far.
+        """
         danger = (self.status == BURNING) | (self.status == BLOCKED)
         return {
             "total": int(self.occ0.sum()),
@@ -500,6 +714,15 @@ class CityModel:
         }
 
     def buildings(self) -> dict:
+        """Count the town's buildings by status.
+
+        Buildings are the kinds in ``population.BUILDING_KINDS`` (not parks or roads).
+
+        Returns:
+            A dict with the current counts ``total``, ``threatened``, ``burning``,
+            ``damaged`` and ``destroyed``, and ``peak_burning`` (most buildings burning at
+            once so far).
+        """
         b = self.is_building
         st = self.status
         return {
@@ -512,6 +735,15 @@ class CityModel:
         }
 
     def by_kind(self) -> dict:
+        """Summarise statuses and people for each asset kind present in the town.
+
+        Returns:
+            A dict keyed by kind name (e.g. ``"house"``); kinds without assets are left out.
+            Each row has ``label``, ``total`` (number of assets), one count per status name
+            (``safe``, ``threatened``, ``burning``, ``damaged``, ``destroyed``, ``blocked``),
+            ``people`` (on site at the start), ``present``, ``at_risk``, ``evacuated`` and
+            ``casualties``.
+        """
         out = {}
         for k in KINDS:
             m = self.kind == KIND_INDEX[k]
@@ -532,15 +764,45 @@ class CityModel:
         return out
 
     def hazards(self) -> dict:
+        """Count the hazardous-site incidents so far.
+
+        Returns:
+            A dict with ``explosions`` (fuel stations that exploded) and ``battery_fires``
+            (battery-storage sites in thermal runaway).
+        """
         return {
             "explosions": int(self.exploded.sum()),
             "battery_fires": int((self.hazmat_fired & self.is_battery).sum()),
         }
 
     def area_burned_ha(self) -> float:
+        """Return the area burned or burning, in hectares.
+
+        Returns:
+            ``(burned_cells + active_cells)`` times the area of one cell (0.01 ha), rounded
+            to 2 decimals.
+        """
         return round((self.burned_cells + self.active_cells) * HA_PER_CELL, 2)
 
     def static_payload(self) -> dict:
+        """Build the static description of the town, sent once per scenario.
+
+        Returns:
+            A JSON-ready dict:
+
+            - ``map_type``: always ``"city"``.
+            - ``width``, ``height``: grid size in cells; ``cell_size_m``: ``CELL_SIZE_M``.
+            - ``landuse``, ``fuel``: ``(H, W)`` nested lists of ``LandUse`` and ``FuelType``
+              codes.
+            - ``elevation``: ``(H, W)`` nested list, rounded to 3 decimals.
+            - ``assets``: ``Asset.to_dict()`` of every asset plus ``occupants0`` (people on
+              site at the start).
+            - ``station``: the crews' base cell, as a dict with ``x`` and ``y``.
+            - ``crews``: ``id`` and ``name`` of every crew.
+            - ``hour``: start hour.
+            - ``kinds``: ``label``, ``vulnerability`` and ``hazard`` of every kind in
+              ``PROFILES``.
+        """
         g = self.map.grid
         assets = []
         for i, a in enumerate(self.assets):
@@ -560,6 +822,29 @@ class CityModel:
         }
 
     def dynamic_payload(self) -> dict:
+        """Build the live state of the town, sent with every simulation state update.
+
+        Returns:
+            A JSON-ready dict:
+
+            - ``clock`` (``"HH:MM"``), ``hour`` (start hour), ``minutes`` (current tick).
+            - ``population``, ``buildings``, ``by_kind``, ``hazards``, ``area_burned_ha``:
+              results of the methods of the same name.
+            - ``assets``: lists indexed by asset id: ``status`` (codes into
+              ``STATUS_NAMES``), ``occupants``, ``evacuated``, ``casualties``, ``at_risk``,
+              ``needs_rescue``, ``burning`` and ``burned`` (shares of the burnable cells, 2
+              decimals) and ``dist`` (cells to the nearest fire).
+            - ``priorities``: up to 15 assets to protect, most urgent first, each with
+              ``id``, ``kind``, ``name``, ``status`` (name), ``level``, ``score``,
+              ``at_risk``, ``needs_rescue``, ``distance_m`` (metres to the fire, ``None``
+              beyond ``D_MAX``), ``downwind``, ``reasons`` (list of strings) and ``crews``
+              (names of the crews assigned).
+            - ``crews``: ``Crew.to_dict()`` of every crew; ``crews_available``: free crews.
+            - ``auto_dispatch``: whether automatic dispatch is on.
+            - ``dispatches``, ``cells_suppressed``: crew totals since the last reset.
+            - ``events``: the 40 newest events, newest first.
+            - ``timeline``: the latest timeline row, or ``None``.
+        """
         return {
             "clock": self.clock(), "hour": self.hour, "minutes": self.tick,
             "population": self.population(),
@@ -589,7 +874,22 @@ class CityModel:
         }
 
     def incident_summary(self) -> dict:
-        """Everything the incident history keeps about this run."""
+        """Everything the incident history keeps about this run.
+
+        Returns:
+            A dict:
+
+            - ``population``, ``buildings``, ``by_kind``, ``hazards``, ``area_burned_ha``:
+              results of the methods of the same name.
+            - ``dispatches``, ``cells_suppressed``: crew totals for the run.
+            - ``top_losses``: up to 5 worst-hit assets (with casualties or destroyed),
+              ranked by casualties, then destroyed buildings with schools, hospitals, fuel
+              and battery sites first; each has ``name``, ``kind``, ``casualties`` and
+              ``status``.
+            - ``key_events``: the first 60 critical events still in the event log, oldest
+              first.
+            - ``timeline``: the timeline rows, thinned to at most 240 (first and last kept).
+        """
         critical = np.isin(self.kind, list(_CRITICAL_KINDS))
         destroyed = (self.status == DESTROYED) & self.is_building
         weight = self.cas * 1000 + destroyed * np.where(critical, 100, 1)

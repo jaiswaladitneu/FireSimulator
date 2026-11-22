@@ -45,7 +45,17 @@ Rect = tuple[int, int, int, int]   # x0, y0, x1, y1 (end-exclusive)
 
 @dataclass
 class Part:
-    """One physical structure of an asset (drawn as a box in the 3-D view)."""
+    """One physical structure of an asset (drawn as a box in the 3-D view).
+
+    Attributes:
+        x: First column of the box.
+        y: First row of the box.
+        w: Width in cells (along x).
+        h: Depth in cells (along y).
+        height: Height in storeys; may be fractional (e.g. 1.6 for a gym).
+        style: Kind of structure: ``house``, ``shop``, ``school``, ``gym``, ``hospital``,
+            ``wing``, ``kiosk``, ``canopy``, ``container`` or ``firestation``.
+    """
     x: int
     y: int
     w: int
@@ -57,7 +67,27 @@ class Part:
 
 @dataclass
 class Asset:
-    """Something people use and responders protect: a building, a park or a road segment."""
+    """Something people use and responders protect: a building, a park or a road segment.
+
+    The site rectangle (``x``, ``y``, ``w``, ``h``) can be larger than the cells the asset
+    occupies in ``CityMap.asset_id`` (e.g. a school's buildings inside its block).
+
+    Attributes:
+        id: Index in ``CityMap.assets``; the value its cells hold in ``CityMap.asset_id``.
+        kind: Asset kind, a key of ``population.PROFILES``: ``house``, ``commercial``,
+            ``school``, ``hospital``, ``fuel_station``, ``battery_storage``,
+            ``fire_station``, ``park`` or ``road``.
+        name: Display name (a street address for a home, the street name for a road segment).
+        x: First column of the site.
+        y: First row of the site.
+        w: Site width in cells.
+        h: Site height in cells.
+        capacity: Most people on site at once; the occupants at the start are drawn from it.
+        floors: Number of storeys.
+        street: Street the asset is on (empty for the fire station).
+        parts: Structures drawn by the 3-D view (empty for parks and roads).
+        center: Centre ``(x, y)`` of the site, in cells.
+    """
     id: int
     kind: str
     name: str
@@ -72,9 +102,16 @@ class Asset:
 
     @property
     def center(self) -> tuple[float, float]:
+        """Centre ``(x, y)`` of the site rectangle, in cells (fractional)."""
         return (self.x + self.w / 2.0, self.y + self.h / 2.0)
 
     def to_dict(self) -> dict:
+        """Serialise the asset to a JSON-ready dict.
+
+        Returns:
+            A dict with ``id``, ``kind``, ``name``, ``street``, ``x``, ``y``, ``w``, ``h``,
+            ``floors``, ``capacity`` and ``parts`` (one dict of ``Part`` fields per part).
+        """
         return {
             "id": self.id, "kind": self.kind, "name": self.name, "street": self.street,
             "x": self.x, "y": self.y, "w": self.w, "h": self.h,
@@ -85,6 +122,20 @@ class Asset:
 
 @dataclass
 class CityMap:
+    """A generated town: its fire grid, land use, assets and fire-crew base.
+
+    Product of ``CityMapGenerator.generate``. Cell arrays have shape ``(H, W)`` and are
+    indexed ``[y, x]``.
+
+    Attributes:
+        grid: Fire grid of the town, with the generator's fuel, moisture and elevation.
+        landuse: ``LandUse`` code of every cell.
+        asset_id: Index into ``assets`` of the asset on every cell, or -1.
+        assets: Every building, park and road segment, indexed by ``Asset.id``.
+        station: Cell ``(x, y)`` where fire crews are based.
+        town: Town rectangle ``(x0, y0, x1, y1)``, end-exclusive; wildland surrounds it.
+        seed: Seed the town was generated from.
+    """
     grid: Grid
     landuse: np.ndarray        # (H, W) LandUse codes
     asset_id: np.ndarray       # (H, W) index into ``assets`` or -1
@@ -96,6 +147,7 @@ class CityMap:
 
 @dataclass
 class _Block:
+    """Street block between two roads each way; ``row``/``col`` index it in the street grid."""
     x0: int
     y0: int
     x1: int
@@ -117,6 +169,7 @@ class _Block:
 
 
 def _overlaps(a: Rect, b: Rect) -> bool:
+    """Tell whether two end-exclusive rectangles overlap."""
     return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
 
@@ -125,10 +178,25 @@ class CityMapGenerator:
 
     @staticmethod
     def generate(width: int, height: int, seed: int = 0) -> CityMap:
+        """Generate a town on a ``width`` x ``height`` grid of cells.
+
+        The same size and seed always give the same town.
+
+        Args:
+            width: Grid width in cells; at least ``MIN_SIDE`` (48) and at most the grid limit
+                ``grid.MAX_SIDE`` (400), otherwise ``ValueError`` is raised.
+            height: Grid height in cells; same limits as ``width``.
+            seed: Seed of the random number generator.
+
+        Returns:
+            The generated town.
+        """
         return _Builder(width, height, seed).build()
 
 
 class _Builder:
+    """Step-by-step builder of one town from a seed (used by ``CityMapGenerator``)."""
+
     def __init__(self, width: int, height: int, seed: int) -> None:
         if width < MIN_SIDE or height < MIN_SIDE:
             raise ValueError(f"city maps need at least {MIN_SIDE} x {MIN_SIDE} cells")
@@ -149,6 +217,7 @@ class _Builder:
 
     # ---- helpers ---------------------------------------------------------
     def _paint(self, rect: Rect, lu: LandUse, fuel: FuelType, moisture: float) -> None:
+        """Set land use, fuel and moisture over a rectangle, clipped to the grid."""
         x0, y0, x1, y1 = rect
         x0, y0 = max(0, x0), max(0, y0)
         x1, y1 = min(self.W, x1), min(self.H, y1)
@@ -182,6 +251,7 @@ class _Builder:
 
     # ---- build ------------------------------------------------------------
     def build(self) -> CityMap:
+        """Run every construction step and return the finished town."""
         self._terrain()
         self._wildland()
         self._roads()
@@ -223,6 +293,7 @@ class _Builder:
         self.moist[:] = (0.08 + 0.17 * self.rng.random(v.shape)).astype(np.float32)
 
     def _roads(self) -> None:
+        """Lay the street grid and highways, name the streets and record the blocks."""
         x0, y0, x1, y1 = self.town
         tw, th = x1 - x0, y1 - y0
         ncols = max(2, round((tw - 2) / 17))
@@ -301,6 +372,7 @@ class _Builder:
 
     # ---- blocks -----------------------------------------------------------
     def _blocks(self) -> None:
+        """Give every block a use (homes, shops, schools, ...) and build its contents."""
         blocks = self.blocks
         tx0, ty0, tx1, ty1 = self.town
         cx, cy = (tx0 + tx1) / 2.0, (ty0 + ty1) / 2.0
@@ -566,6 +638,7 @@ class _Builder:
         self.station = (min(x0 + 1, x1 - 1), y1 - 1)
 
     def _road_assets(self) -> None:
+        """Register road segments and 12-cell highway sections as ``road`` assets."""
         def capacity(rect: Rect, factor: float) -> int:
             cells = (rect[2] - rect[0]) * (rect[3] - rect[1])
             return max(2, round(cells * 0.45 * factor))

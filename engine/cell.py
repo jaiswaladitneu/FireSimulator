@@ -7,7 +7,22 @@ from enum import IntEnum
 
 
 class CellState(IntEnum):
-    """Lifecycle of a single cell (matches the cell state-machine diagram)."""
+    """Lifecycle of a single cell (matches the cell state-machine diagram).
+
+    The values are the codes stored in ``Grid.state``. As the fire passes, a cell moves along
+    ``UNBURNED -> IGNITING -> BURNING -> BURNED``; ``Grid.ignite`` sets a cell straight to
+    ``BURNING``, and suppression turns an unburned, igniting or burning cell into ``SUPPRESSED``.
+
+    Attributes:
+        UNBURNED: Not on fire (the initial state); only these cells can be ignited by spread.
+        IGNITING: Caught fire this tick; becomes ``BURNING`` at the start of the next tick. It
+            does not spread fire or consume fuel yet.
+        BURNING: On fire: can ignite its neighbours and consumes fuel every tick; becomes
+            ``BURNED`` when its fuel runs out.
+        BURNED: Burned out; its fuel is exhausted.
+        SUPPRESSED: Suppression was applied; the cell stops burning and spreading fire can no
+            longer ignite it.
+    """
     UNBURNED = 0
     IGNITING = 1
     BURNING = 2
@@ -16,6 +31,23 @@ class CellState(IntEnum):
 
 
 class FuelType(IntEnum):
+    """Kind of fuel in a cell; the values are the codes stored in ``Grid.fuel``.
+
+    The fuel sets how a cell burns through the per-fuel tables in this module:
+    ``FUEL_FLAMMABILITY`` (how readily it ignites, 0..1), ``FUEL_BURN_RATE`` (fuel consumed per
+    burning tick, where a burnable cell starts with 1.0) and ``FUEL_INTENSITY`` (relative heat
+    output, used only by ``UrbanSpreadModel``).
+
+    Attributes:
+        NONE: Nothing to burn (e.g. water, roads, paving); such a cell never ignites.
+        GRASS: Grass: the most flammable fuel and the quickest to burn out.
+        SHRUB: Shrubs; between grass and forest in flammability and burn rate.
+        FOREST: Forest; ignites less readily and burns longer than grass or shrubs.
+        STRUCTURE: Wood-frame buildings (houses, small shops).
+        MASONRY: Large concrete or brick buildings (schools, hospital); the hardest fuel to
+            ignite.
+        HAZMAT: Fuel pumps and tanks, lithium battery containers; burns hottest and longest.
+    """
     NONE = 0
     GRASS = 1
     SHRUB = 2
