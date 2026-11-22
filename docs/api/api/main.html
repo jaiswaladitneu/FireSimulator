@@ -1,0 +1,1949 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="generator" content="pdoc 16.0.0"/>
+    <title>api.main API documentation</title>
+
+    <style>/*! * Bootstrap Reboot v5.0.0 (https://getbootstrap.com/) * Copyright 2011-2021 The Bootstrap Authors * Copyright 2011-2021 Twitter, Inc. * Licensed under MIT (https://github.com/twbs/bootstrap/blob/main/LICENSE) * Forked from Normalize.css, licensed MIT (https://github.com/necolas/normalize.css/blob/master/LICENSE.md) */*,::after,::before{box-sizing:border-box}@media (prefers-reduced-motion:no-preference){:root{scroll-behavior:smooth}}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans","Liberation Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";font-size:1rem;font-weight:400;line-height:1.5;color:#212529;background-color:#fff;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}hr{margin:1rem 0;color:inherit;background-color:currentColor;border:0;opacity:.25}hr:not([size]){height:1px}h1,h2,h3,h4,h5,h6{margin-top:0;margin-bottom:.5rem;font-weight:500;line-height:1.2}h1{font-size:calc(1.375rem + 1.5vw)}@media (min-width:1200px){h1{font-size:2.5rem}}h2{font-size:calc(1.325rem + .9vw)}@media (min-width:1200px){h2{font-size:2rem}}h3{font-size:calc(1.3rem + .6vw)}@media (min-width:1200px){h3{font-size:1.75rem}}h4{font-size:calc(1.275rem + .3vw)}@media (min-width:1200px){h4{font-size:1.5rem}}h5{font-size:1.25rem}h6{font-size:1rem}p{margin-top:0;margin-bottom:1rem}abbr[data-bs-original-title],abbr[title]{-webkit-text-decoration:underline dotted;text-decoration:underline dotted;cursor:help;-webkit-text-decoration-skip-ink:none;text-decoration-skip-ink:none}address{margin-bottom:1rem;font-style:normal;line-height:inherit}ol,ul{padding-left:2rem}dl,ol,ul{margin-top:0;margin-bottom:1rem}ol ol,ol ul,ul ol,ul ul{margin-bottom:0}dt{font-weight:700}dd{margin-bottom:.5rem;margin-left:0}blockquote{margin:0 0 1rem}b,strong{font-weight:bolder}small{font-size:.875em}mark{padding:.2em;background-color:#fcf8e3}sub,sup{position:relative;font-size:.75em;line-height:0;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}a{color:#0d6efd;text-decoration:underline}a:hover{color:#0a58ca}a:not([href]):not([class]),a:not([href]):not([class]):hover{color:inherit;text-decoration:none}code,kbd,pre,samp{font-family:SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:1em;direction:ltr;unicode-bidi:bidi-override}pre{display:block;margin-top:0;margin-bottom:1rem;overflow:auto;font-size:.875em}pre code{font-size:inherit;color:inherit;word-break:normal}code{font-size:.875em;color:#d63384;word-wrap:break-word}a>code{color:inherit}kbd{padding:.2rem .4rem;font-size:.875em;color:#fff;background-color:#212529;border-radius:.2rem}kbd kbd{padding:0;font-size:1em;font-weight:700}figure{margin:0 0 1rem}img,svg{vertical-align:middle}table{caption-side:bottom;border-collapse:collapse}caption{padding-top:.5rem;padding-bottom:.5rem;color:#6c757d;text-align:left}th{text-align:inherit;text-align:-webkit-match-parent}tbody,td,tfoot,th,thead,tr{border-color:inherit;border-style:solid;border-width:0}label{display:inline-block}button{border-radius:0}button:focus:not(:focus-visible){outline:0}button,input,optgroup,select,textarea{margin:0;font-family:inherit;font-size:inherit;line-height:inherit}button,select{text-transform:none}[role=button]{cursor:pointer}select{word-wrap:normal}select:disabled{opacity:1}[list]::-webkit-calendar-picker-indicator{display:none}[type=button],[type=reset],[type=submit],button{-webkit-appearance:button}[type=button]:not(:disabled),[type=reset]:not(:disabled),[type=submit]:not(:disabled),button:not(:disabled){cursor:pointer}::-moz-focus-inner{padding:0;border-style:none}textarea{resize:vertical}fieldset{min-width:0;padding:0;margin:0;border:0}legend{float:left;width:100%;padding:0;margin-bottom:.5rem;font-size:calc(1.275rem + .3vw);line-height:inherit}@media (min-width:1200px){legend{font-size:1.5rem}}legend+*{clear:left}::-webkit-datetime-edit-day-field,::-webkit-datetime-edit-fields-wrapper,::-webkit-datetime-edit-hour-field,::-webkit-datetime-edit-minute,::-webkit-datetime-edit-month-field,::-webkit-datetime-edit-text,::-webkit-datetime-edit-year-field{padding:0}::-webkit-inner-spin-button{height:auto}[type=search]{outline-offset:-2px;-webkit-appearance:textfield}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-color-swatch-wrapper{padding:0}::file-selector-button{font:inherit}::-webkit-file-upload-button{font:inherit;-webkit-appearance:button}output{display:inline-block}iframe{border:0}summary{display:list-item;cursor:pointer}progress{vertical-align:baseline}[hidden]{display:none!important}</style>
+    <style>/*! syntax-highlighting.css */pre{line-height:125%;}span.linenos{color:inherit; background-color:transparent; padding-left:5px; padding-right:20px;}.pdoc-code .hll{background-color:#ffffcc}.pdoc-code{background:#f8f8f8;}.pdoc-code .c{color:#3D7B7B; font-style:italic}.pdoc-code .err{border:1px solid #FF0000}.pdoc-code .k{color:#008000; font-weight:bold}.pdoc-code .o{color:#666666}.pdoc-code .ch{color:#3D7B7B; font-style:italic}.pdoc-code .cm{color:#3D7B7B; font-style:italic}.pdoc-code .cp{color:#9C6500}.pdoc-code .cpf{color:#3D7B7B; font-style:italic}.pdoc-code .c1{color:#3D7B7B; font-style:italic}.pdoc-code .cs{color:#3D7B7B; font-style:italic}.pdoc-code .gd{color:#A00000}.pdoc-code .ge{font-style:italic}.pdoc-code .gr{color:#E40000}.pdoc-code .gh{color:#000080; font-weight:bold}.pdoc-code .gi{color:#008400}.pdoc-code .go{color:#717171}.pdoc-code .gp{color:#000080; font-weight:bold}.pdoc-code .gs{font-weight:bold}.pdoc-code .gu{color:#800080; font-weight:bold}.pdoc-code .gt{color:#0044DD}.pdoc-code .kc{color:#008000; font-weight:bold}.pdoc-code .kd{color:#008000; font-weight:bold}.pdoc-code .kn{color:#008000; font-weight:bold}.pdoc-code .kp{color:#008000}.pdoc-code .kr{color:#008000; font-weight:bold}.pdoc-code .kt{color:#B00040}.pdoc-code .m{color:#666666}.pdoc-code .s{color:#BA2121}.pdoc-code .na{color:#687822}.pdoc-code .nb{color:#008000}.pdoc-code .nc{color:#0000FF; font-weight:bold}.pdoc-code .no{color:#880000}.pdoc-code .nd{color:#AA22FF}.pdoc-code .ni{color:#717171; font-weight:bold}.pdoc-code .ne{color:#CB3F38; font-weight:bold}.pdoc-code .nf{color:#0000FF}.pdoc-code .nl{color:#767600}.pdoc-code .nn{color:#0000FF; font-weight:bold}.pdoc-code .nt{color:#008000; font-weight:bold}.pdoc-code .nv{color:#19177C}.pdoc-code .ow{color:#AA22FF; font-weight:bold}.pdoc-code .w{color:#bbbbbb}.pdoc-code .mb{color:#666666}.pdoc-code .mf{color:#666666}.pdoc-code .mh{color:#666666}.pdoc-code .mi{color:#666666}.pdoc-code .mo{color:#666666}.pdoc-code .sa{color:#BA2121}.pdoc-code .sb{color:#BA2121}.pdoc-code .sc{color:#BA2121}.pdoc-code .dl{color:#BA2121}.pdoc-code .sd{color:#BA2121; font-style:italic}.pdoc-code .s2{color:#BA2121}.pdoc-code .se{color:#AA5D1F; font-weight:bold}.pdoc-code .sh{color:#BA2121}.pdoc-code .si{color:#A45A77; font-weight:bold}.pdoc-code .sx{color:#008000}.pdoc-code .sr{color:#A45A77}.pdoc-code .s1{color:#BA2121}.pdoc-code .ss{color:#19177C}.pdoc-code .bp{color:#008000}.pdoc-code .fm{color:#0000FF}.pdoc-code .vc{color:#19177C}.pdoc-code .vg{color:#19177C}.pdoc-code .vi{color:#19177C}.pdoc-code .vm{color:#19177C}.pdoc-code .il{color:#666666}</style>
+    <style>/*! theme.css */:root{--pdoc-background:#fff;}.pdoc{--text:#212529;--muted:#6c757d;--link:#3660a5;--link-hover:#1659c5;--code:#f8f8f8;--active:#fff598;--accent:#eee;--accent2:#c1c1c1;--nav-hover:rgba(255, 255, 255, 0.5);--name:#0066BB;--def:#008800;--annotation:#007020;}</style>
+    <style>/*! layout.css */html, body{width:100%;height:100%;}html, main{scroll-behavior:smooth;}body{background-color:var(--pdoc-background);}@media (max-width:769px){#navtoggle{cursor:pointer;position:absolute;width:50px;height:40px;top:1rem;right:1rem;border-color:var(--text);color:var(--text);display:flex;opacity:0.8;z-index:999;}#navtoggle:hover{opacity:1;}#togglestate + div{display:none;}#togglestate:checked + div{display:inherit;}main, header{padding:2rem 3vw;}header + main{margin-top:-3rem;}.git-button{display:none !important;}nav input[type="search"]{max-width:77%;}nav input[type="search"]:first-child{margin-top:-6px;}nav input[type="search"]:valid ~ *{display:none !important;}}@media (min-width:770px){:root{--sidebar-width:clamp(12.5rem, 28vw, 22rem);}nav{position:fixed;overflow:auto;height:100vh;width:var(--sidebar-width);}main, header{padding:3rem 2rem 3rem calc(var(--sidebar-width) + 3rem);width:calc(54rem + var(--sidebar-width));max-width:100%;}header + main{margin-top:-4rem;}#navtoggle{display:none;}}#togglestate{position:absolute;height:0;opacity:0;}nav.pdoc{--pad:clamp(0.5rem, 2vw, 1.75rem);--indent:1.5rem;background-color:var(--accent);border-right:1px solid var(--accent2);box-shadow:0 0 20px rgba(50, 50, 50, .2) inset;padding:0 0 0 var(--pad);overflow-wrap:anywhere;scrollbar-width:thin; scrollbar-color:var(--accent2) transparent; z-index:1}nav.pdoc::-webkit-scrollbar{width:.4rem; }nav.pdoc::-webkit-scrollbar-thumb{background-color:var(--accent2); }nav.pdoc > div{padding:var(--pad) 0;}nav.pdoc .module-list-button{display:inline-flex;align-items:center;color:var(--text);border-color:var(--muted);margin-bottom:1rem;}nav.pdoc .module-list-button:hover{border-color:var(--text);}nav.pdoc input[type=search]{display:block;outline-offset:0;width:calc(100% - var(--pad));}nav.pdoc .logo{max-width:calc(100% - var(--pad));max-height:35vh;display:block;margin:0 auto 1rem;transform:translate(calc(-.5 * var(--pad)), 0);}nav.pdoc ul{list-style:none;padding-left:0;}nav.pdoc > div > ul{margin-left:calc(0px - var(--pad));}nav.pdoc li a{padding:.2rem 0 .2rem calc(var(--pad) + var(--indent));}nav.pdoc > div > ul > li > a{padding-left:var(--pad);}nav.pdoc li{transition:all 100ms;}nav.pdoc li:hover{background-color:var(--nav-hover);}nav.pdoc a, nav.pdoc a:hover{color:var(--text);}nav.pdoc a{display:block;}nav.pdoc > h2:first-of-type{margin-top:1.5rem;}nav.pdoc .class:before{content:"class ";color:var(--muted);}nav.pdoc .function:after{content:"()";color:var(--muted);}nav.pdoc footer:before{content:"";display:block;width:calc(100% - var(--pad));border-top:solid var(--accent2) 1px;margin-top:1.5rem;padding-top:.5rem;}nav.pdoc footer{font-size:small;}</style>
+    <style>/*! content.css */.pdoc{color:var(--text);box-sizing:border-box;line-height:1.5;background:none;}.pdoc .pdoc-button{cursor:pointer;display:inline-block;border:solid black 1px;border-radius:2px;font-size:.75rem;padding:calc(0.5em - 1px) 1em;transition:100ms all;}.pdoc .alert{padding:1rem 1rem 1rem calc(1.5rem + 24px);border:1px solid transparent;border-radius:.25rem;background-repeat:no-repeat;background-position:.75rem center;margin-bottom:1rem;}.pdoc .alert > em{display:none;}.pdoc .alert > *:last-child{margin-bottom:0;}.pdoc .alert.note{color:#084298;background-color:#cfe2ff;border-color:#b6d4fe;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%23084298%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M8%2016A8%208%200%201%200%208%200a8%208%200%200%200%200%2016zm.93-9.412-1%204.705c-.07.34.029.533.304.533.194%200%20.487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703%200-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381%202.29-.287zM8%205.5a1%201%200%201%201%200-2%201%201%200%200%201%200%202z%22/%3E%3C/svg%3E");}.pdoc .alert.tip{color:#0a3622;background-color:#d1e7dd;border-color:#a3cfbb;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%230a3622%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M2%206a6%206%200%201%201%2010.174%204.31c-.203.196-.359.4-.453.619l-.762%201.769A.5.5%200%200%201%2010.5%2013a.5.5%200%200%201%200%201%20.5.5%200%200%201%200%201l-.224.447a1%201%200%200%201-.894.553H6.618a1%201%200%200%201-.894-.553L5.5%2015a.5.5%200%200%201%200-1%20.5.5%200%200%201%200-1%20.5.5%200%200%201-.46-.302l-.761-1.77a2%202%200%200%200-.453-.618A5.98%205.98%200%200%201%202%206m6-5a5%205%200%200%200-3.479%208.592c.263.254.514.564.676.941L5.83%2012h4.342l.632-1.467c.162-.377.413-.687.676-.941A5%205%200%200%200%208%201%22/%3E%3C/svg%3E");}.pdoc .alert.important{color:#055160;background-color:#cff4fc;border-color:#9eeaf9;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%23055160%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M2%200a2%202%200%200%200-2%202v12a2%202%200%200%200%202%202h12a2%202%200%200%200%202-2V2a2%202%200%200%200-2-2zm6%204c.535%200%20.954.462.9.995l-.35%203.507a.552.552%200%200%201-1.1%200L7.1%204.995A.905.905%200%200%201%208%204m.002%206a1%201%200%201%201%200%202%201%201%200%200%201%200-2%22/%3E%3C/svg%3E");}.pdoc .alert.warning{color:#664d03;background-color:#fff3cd;border-color:#ffecb5;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%23664d03%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M8.982%201.566a1.13%201.13%200%200%200-1.96%200L.165%2013.233c-.457.778.091%201.767.98%201.767h13.713c.889%200%201.438-.99.98-1.767L8.982%201.566zM8%205c.535%200%20.954.462.9.995l-.35%203.507a.552.552%200%200%201-1.1%200L7.1%205.995A.905.905%200%200%201%208%205zm.002%206a1%201%200%201%201%200%202%201%201%200%200%201%200-2z%22/%3E%3C/svg%3E");}.pdoc .alert.caution{color:#842029;background-color:#f8d7da;border-color:#f5c2c7;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%23842029%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M11.46.146A.5.5%200%200%200%2011.107%200H4.893a.5.5%200%200%200-.353.146L.146%204.54A.5.5%200%200%200%200%204.893v6.214a.5.5%200%200%200%20.146.353l4.394%204.394a.5.5%200%200%200%20.353.146h6.214a.5.5%200%200%200%20.353-.146l4.394-4.394a.5.5%200%200%200%20.146-.353V4.893a.5.5%200%200%200-.146-.353zM8%204c.535%200%20.954.462.9.995l-.35%203.507a.552.552%200%200%201-1.1%200L7.1%204.995A.905.905%200%200%201%208%204m.002%206a1%201%200%201%201%200%202%201%201%200%200%201%200-2%22/%3E%3C/svg%3E");}.pdoc .alert.danger{color:#842029;background-color:#f8d7da;border-color:#f5c2c7;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2224%22%20height%3D%2224%22%20fill%3D%22%23842029%22%20viewBox%3D%220%200%2016%2016%22%3E%3Cpath%20d%3D%22M5.52.359A.5.5%200%200%201%206%200h4a.5.5%200%200%201%20.474.658L8.694%206H12.5a.5.5%200%200%201%20.395.807l-7%209a.5.5%200%200%201-.873-.454L6.823%209.5H3.5a.5.5%200%200%201-.48-.641l2.5-8.5z%22/%3E%3C/svg%3E");}.pdoc .visually-hidden{position:absolute !important;width:1px !important;height:1px !important;padding:0 !important;margin:-1px !important;overflow:hidden !important;clip:rect(0, 0, 0, 0) !important;white-space:nowrap !important;border:0 !important;}.pdoc h1, .pdoc h2, .pdoc h3{font-weight:300;margin:.3em 0;padding:.2em 0;}.pdoc > section:not(.module-info) h1{font-size:1.5rem;font-weight:500;}.pdoc > section:not(.module-info) h2{font-size:1.4rem;font-weight:500;}.pdoc > section:not(.module-info) h3{font-size:1.3rem;font-weight:500;}.pdoc > section:not(.module-info) h4{font-size:1.2rem;}.pdoc > section:not(.module-info) h5{font-size:1.1rem;}.pdoc a{text-decoration:none;color:var(--link);}.pdoc a:hover{color:var(--link-hover);}.pdoc blockquote{margin-left:2rem;}.pdoc pre{border-top:1px solid var(--accent2);border-bottom:1px solid var(--accent2);margin-top:0;margin-bottom:1em;padding:.5rem 0 .5rem .5rem;overflow-x:auto;background-color:var(--code);}.pdoc code{color:var(--text);padding:.2em .4em;margin:0;font-size:85%;background-color:var(--accent);border-radius:6px;}.pdoc a > code{color:inherit;}.pdoc pre > code{display:inline-block;font-size:inherit;background:none;border:none;padding:0;}.pdoc > section:not(.module-info){margin-bottom:1.5rem;}.pdoc .modulename{margin-top:0;font-weight:bold;}.pdoc .modulename a{color:var(--link);transition:100ms all;}.pdoc .git-button{float:right;border:solid var(--link) 1px;}.pdoc .git-button:hover{background-color:var(--link);color:var(--pdoc-background);}.view-source-toggle-state,.view-source-toggle-state ~ .pdoc-code{display:none;}.view-source-toggle-state:checked ~ .pdoc-code{display:block;}.view-source-button{display:inline-block;float:right;font-size:.75rem;line-height:1.5rem;color:var(--muted);padding:0 .4rem 0 1.3rem;cursor:pointer;text-indent:-2px;}.view-source-button > span{visibility:hidden;}.module-info .view-source-button{float:none;display:flex;justify-content:flex-end;margin:-1.2rem .4rem -.2rem 0;}.view-source-button::before{position:absolute;content:"View Source";display:list-item;list-style-type:disclosure-closed;}.view-source-toggle-state:checked ~ .attr .view-source-button::before,.view-source-toggle-state:checked ~ .view-source-button::before{list-style-type:disclosure-open;}.pdoc .docstring{margin-bottom:1.5rem;}.pdoc section:not(.module-info) .docstring{margin-left:clamp(0rem, 5vw - 2rem, 1rem);}.pdoc .docstring .pdoc-code{margin-left:1em;margin-right:1em;}.pdoc h1:target,.pdoc h2:target,.pdoc h3:target,.pdoc h4:target,.pdoc h5:target,.pdoc h6:target,.pdoc .pdoc-code > pre > span:target{background-color:var(--active);box-shadow:-1rem 0 0 0 var(--active);}.pdoc .pdoc-code > pre > span:target{display:block;}.pdoc div:target > .attr,.pdoc section:target > .attr,.pdoc dd:target > a{background-color:var(--active);}.pdoc *{scroll-margin:2rem;}.pdoc .pdoc-code .linenos{user-select:none;}.pdoc .attr:hover{filter:contrast(0.95);}.pdoc section, .pdoc .classattr{position:relative;}.pdoc .headerlink{--width:clamp(1rem, 3vw, 2rem);position:absolute;top:0;left:calc(0rem - var(--width));transition:all 100ms ease-in-out;opacity:0;}.pdoc .headerlink::before{content:"#";display:block;text-align:center;width:var(--width);height:2.3rem;line-height:2.3rem;font-size:1.5rem;}.pdoc .attr:hover ~ .headerlink,.pdoc *:target > .headerlink,.pdoc .headerlink:hover{opacity:1;}.pdoc .attr{display:block;margin:.5rem 0 .5rem;padding:.4rem .4rem .4rem 1rem;background-color:var(--accent);overflow-x:auto;}.pdoc .classattr{margin-left:2rem;}.pdoc .decorator-deprecated{color:#842029;}.pdoc .decorator-deprecated ~ span{filter:grayscale(1) opacity(0.8);}.pdoc .name{color:var(--name);font-weight:bold;}.pdoc .def{color:var(--def);font-weight:bold;}.pdoc .signature{background-color:transparent;}.pdoc .param, .pdoc .return-annotation{white-space:pre;}.pdoc .signature.multiline .param{display:block;}.pdoc .signature.condensed .param{display:inline-block;}.pdoc .annotation{color:var(--annotation);}.pdoc .view-value-toggle-state,.pdoc .view-value-toggle-state ~ .default_value{display:none;}.pdoc .view-value-toggle-state:checked ~ .default_value{display:inherit;}.pdoc .view-value-button{font-size:.5rem;vertical-align:middle;border-style:dashed;margin-top:-0.1rem;}.pdoc .view-value-button:hover{background:white;}.pdoc .view-value-button::before{content:"show";text-align:center;width:2.2em;display:inline-block;}.pdoc .view-value-toggle-state:checked ~ .view-value-button::before{content:"hide";}.pdoc .inherited{margin-left:2rem;}.pdoc .inherited dt{font-weight:700;}.pdoc .inherited dt, .pdoc .inherited dd{display:inline;margin-left:0;margin-bottom:.5rem;}.pdoc .inherited dd:not(:last-child):after{content:", ";}.pdoc .inherited .class:before{content:"class ";}.pdoc .inherited .function a:after{content:"()";}.pdoc .search-result .docstring{overflow:auto;max-height:25vh;}.pdoc .search-result.focused > .attr{background-color:var(--active);}.pdoc .attribution{margin-top:2rem;display:block;opacity:0.5;transition:all 200ms;filter:grayscale(100%);}.pdoc .attribution:hover{opacity:1;filter:grayscale(0%);}.pdoc .attribution img{margin-left:5px;height:27px;vertical-align:bottom;width:50px;transition:all 200ms;}.pdoc table{display:block;width:max-content;max-width:100%;overflow:auto;margin-bottom:1rem;}.pdoc table th{font-weight:600;}.pdoc table th, .pdoc table td{padding:6px 13px;border:1px solid var(--accent2);}</style>
+    <style>/*! custom.css */</style></head>
+<body>
+    <nav class="pdoc">
+        <label id="navtoggle" for="togglestate" class="pdoc-button"><svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'><path stroke-linecap='round' stroke="currentColor" stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/></svg></label>
+        <input id="togglestate" type="checkbox" aria-hidden="true" tabindex="-1">
+        <div>            <a class="pdoc-button module-list-button" href="../api.html">
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-in-left" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="M10 3.5a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-2a.5.5 0 0 1 1 0v2A1.5 1.5 0 0 1 9.5 14h-8A1.5 1.5 0 0 1 0 12.5v-9A1.5 1.5 0 0 1 1.5 2h8A1.5 1.5 0 0 1 11 3.5v2a.5.5 0 0 1-1 0v-2z"/>
+  <path fill-rule="evenodd" d="M4.146 8.354a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L5.707 7.5H14.5a.5.5 0 0 1 0 1H5.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3z"/>
+</svg>                &nbsp;api</a>
+
+
+            <input type="search" placeholder="Search..." role="searchbox" aria-label="search"
+                   pattern=".+" required>
+
+
+
+            <h2>API Documentation</h2>
+                <ul class="memberlist">
+            <li>
+                    <a class="variable" href="#app">app</a>
+            </li>
+            <li>
+                    <a class="class" href="#ApiPrefixMiddleware">ApiPrefixMiddleware</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="function" href="#ApiPrefixMiddleware.__init__">ApiPrefixMiddleware</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ApiPrefixMiddleware.app">app</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="variable" href="#scenarios">scenarios</a>
+            </li>
+            <li>
+                    <a class="variable" href="#incidents">incidents</a>
+            </li>
+            <li>
+                    <a class="class" href="#IgnitionPointIn">IgnitionPointIn</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#IgnitionPointIn.x">x</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#IgnitionPointIn.y">y</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#IgnitionPointIn.tick">tick</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#ScenarioIn">ScenarioIn</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#ScenarioIn.name">name</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.width">width</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.height">height</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.seed">seed</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.wind_direction">wind_direction</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.wind_speed">wind_speed</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.ignition_points">ignition_points</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.map_type">map_type</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.hour">hour</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.crews">crews</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#ScenarioIn.auto_dispatch">auto_dispatch</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#SpeedIn">SpeedIn</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#SpeedIn.speed">speed</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#CellIn">CellIn</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#CellIn.x">x</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#CellIn.y">y</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#SuppressIn">SuppressIn</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#SuppressIn.cells">cells</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#DispatchIn">DispatchIn</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#DispatchIn.asset_id">asset_id</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#AutoDispatchIn">AutoDispatchIn</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#AutoDispatchIn.enabled">enabled</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="class" href="#BatchIn">BatchIn</a>
+                            <ul class="memberlist">
+                        <li>
+                                <a class="variable" href="#BatchIn.count">count</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#BatchIn.size">size</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#BatchIn.max_ticks">max_ticks</a>
+                        </li>
+                        <li>
+                                <a class="variable" href="#BatchIn.seed">seed</a>
+                        </li>
+                </ul>
+
+            </li>
+            <li>
+                    <a class="function" href="#health">health</a>
+            </li>
+            <li>
+                    <a class="function" href="#create_scenario">create_scenario</a>
+            </li>
+            <li>
+                    <a class="function" href="#list_scenarios">list_scenarios</a>
+            </li>
+            <li>
+                    <a class="function" href="#get_scenario">get_scenario</a>
+            </li>
+            <li>
+                    <a class="function" href="#delete_scenario">delete_scenario</a>
+            </li>
+            <li>
+                    <a class="function" href="#replay_scenario">replay_scenario</a>
+            </li>
+            <li>
+                    <a class="function" href="#play">play</a>
+            </li>
+            <li>
+                    <a class="function" href="#pause">pause</a>
+            </li>
+            <li>
+                    <a class="function" href="#step">step</a>
+            </li>
+            <li>
+                    <a class="function" href="#tick">tick</a>
+            </li>
+            <li>
+                    <a class="function" href="#reset">reset</a>
+            </li>
+            <li>
+                    <a class="function" href="#speed">speed</a>
+            </li>
+            <li>
+                    <a class="function" href="#state">state</a>
+            </li>
+            <li>
+                    <a class="function" href="#simulation_map">simulation_map</a>
+            </li>
+            <li>
+                    <a class="function" href="#ignite">ignite</a>
+            </li>
+            <li>
+                    <a class="function" href="#suppress">suppress</a>
+            </li>
+            <li>
+                    <a class="function" href="#dispatch">dispatch</a>
+            </li>
+            <li>
+                    <a class="function" href="#auto_dispatch">auto_dispatch</a>
+            </li>
+            <li>
+                    <a class="function" href="#end_incident">end_incident</a>
+            </li>
+            <li>
+                    <a class="function" href="#list_incidents">list_incidents</a>
+            </li>
+            <li>
+                    <a class="function" href="#get_incident">get_incident</a>
+            </li>
+            <li>
+                    <a class="function" href="#delete_incident">delete_incident</a>
+            </li>
+            <li>
+                    <a class="function" href="#clear_incidents">clear_incidents</a>
+            </li>
+            <li>
+                    <a class="function" href="#simulate_incidents">simulate_incidents</a>
+            </li>
+            <li>
+                    <a class="function" href="#mount_ui">mount_ui</a>
+            </li>
+    </ul>
+
+
+            <footer>Fire Simulator API reference</footer>
+
+        <a class="attribution" title="pdoc: Python API documentation generator" href="https://pdoc.dev" target="_blank">
+            built with <span class="visually-hidden">pdoc</span><img
+                alt="pdoc logo"
+                src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20role%3D%22img%22%20aria-label%3D%22pdoc%20logo%22%20width%3D%22300%22%20height%3D%22160%22%20viewBox%3D%220%200%20150%2080%22%3E%3Ctitle%3Epdoc%3C/title%3E%3Cpath%20d%3D%22M132.316%2048.886c.276-4.679%202.342-6.698%204.409-7.982s4.27-1.165%206.751-1.055c1.586.07%203.044.156%204.222-.482%201.142-.619%202.026-1.932%202.162-3.739.268-3.576-1.929-5.368-5.006-5.551s-7.599.524-10.517%201.606c-4.455%201.652-8.588%206.606-9.552%208.992s-2.342%206.193-1.745%2010.873%202.664%209.221%205.878%2011.79%205.878%203.808%2010.103%204.312%203.444.229%206.062.229%205.006-2.202%204.914-4.909-2.296-5.001-4.501-4.863-3.077.505-5.281.229-7.715-2.064-7.899-9.451z%22%20fill%3D%22%23198754%22/%3E%3Ccircle%20cx%3D%22101.504%22%20cy%3D%2248.943%22%20r%3D%2214.208%22%20fill%3D%22none%22%20stroke%3D%22%23198754%22%20stroke-width%3D%229.354%22/%3E%3Cpath%20d%3D%22M87.81.002c-3.637.065-5.001.454-7.014%201.232s-3.443%201.363-6.3%204.282c-1.723%201.76-3.148%205.019-3.776%207.329-.413%201.521-.316%202.63-.316%202.63l-.195%2034.612c.065%205.774-6.755%208.305-9.612%208.37s-9.678-1.038-9.743-9.408%207.128-9.521%208.362-9.521c1.413-.13%202.526-.021%203.718-.016%202.071.009%204.157-.778%204.092-4.671s-4.157-4.736-4.157-4.736c-6.3-.843-11.43%202.206-11.43%202.206S40.917%2038.15%2041.372%2049.634%2051.568%2068.19%2061.311%2068.125s18.316-7.007%2018.445-17.193l.13-22.772c.046-2.291%202.683-3.644%204.476-4.203.745-.232%201.694-.274%201.694-.274l10.457-.13s4.871-.324%207.729-3.114%204.352-6.294%204.352-6.294.974-3.049.13-4.606-.195-1.233-2.792-3.309-8.573-4.477-8.573-4.477S91.447-.063%2087.81.002zM0%2047.169l.065%2028.417S0%2080.127%204.481%2079.997s5.072-3.866%205.049-4.152l-.113-28.482s1.624-7.656%209.937-7.721%2010.002%206.942%2010.002%208.499-.909%2010.51-9.093%2010.51c-.948%200-2.99-.567-4.145-.272-3.919%201-3.194%204.554-3.194%204.554s.065%205.061%207.404%204.996%2018.575-6.034%2018.575-19.074S26.953%2030.04%2019.549%2029.91%201.234%2035.296%200%2047.169z%22%20fill%3D%22%23198754%22/%3E%3Cg%20transform%3D%22matrix%28.325601%200%200%20.325256%20-10.32669%20-45.802786%29%22%3E%3Ccircle%20cx%3D%22297.554%22%20cy%3D%22172.286%22%20r%3D%2216.5%22%20fill%3D%22%23fff%22/%3E%3Cellipse%20cx%3D%22297.709%22%20cy%3D%22172.642%22%20rx%3D%2211.071%22%20ry%3D%2210.871%22%20fill%3D%22%23105a48%22/%3E%3Ccircle%20cx%3D%22304.104%22%20cy%3D%22167.667%22%20r%3D%224.5%22%20fill%3D%22%23fff%22/%3E%3C/g%3E%3Cpath%20d%3D%22M94.661%2017.032l.893-1.476s.99.714%201.916.925%201.575.114%202.955.114l14.565-.162c1.283-.032%203.085-.762%203.02-3.293s-.373-3.503-.373-3.503l1.283-.487s.52.503.877%201.573.309%201.995.292%202.66-.227%201.541-.227%201.541%201.564-.308%202.359-1.038.823-.779%201.489-1.508.812-.86.812-.86.552-.13.877.26.341.957.065%201.46-1.672%202.206-3.247%203.066-2.76%201.427-3.929%201.768-3.848.73-7.063.714l-10.944-.114s-2.143-.081-3.02-.373-2.241-.973-2.598-1.265z%22%20fill%3D%22%23d36d49%22/%3E%3Cg%20fill%3D%22%23105a48%22%3E%3Cellipse%20cx%3D%2293.052%22%20cy%3D%2243.567%22%20rx%3D%22.869%22%20ry%3D%221.014%22%20transform%3D%22rotate%28341.022%29%22/%3E%3Cellipse%20cx%3D%22104.3%22%20cy%3D%22-16.184%22%20rx%3D%22.865%22%20ry%3D%221.009%22%20transform%3D%22rotate%2814.786%29%22/%3E%3C/g%3E%3C/svg%3E"/>
+        </a>
+</div>
+    </nav>
+    <main class="pdoc">
+            <section class="module-info">
+                        <a class="pdoc-button git-button" href="https://github.com/jaiswaladitneu/FireSimulator/blob/main/api/main.py">Edit on GitHub</a>
+                    <h1 class="modulename">
+<a href="./../api.html">api</a><wbr>.main    </h1>
+
+                        <div class="docstring"><p>FastAPI application: scenario management and playback control (Epic E2).</p>
+
+<p>This is the control surface other components and the UI use. It wraps the
+simulation (a Facade over the engine and, for towns, the city layer) and keeps
+scenarios in a repository. A single active session is held for simplicity.</p>
+
+<p>City scenarios add the incident-command features: the town map, people at risk,
+priorities, fire-crew dispatch, and an incident history (Epic E6) that records
+every finished city incident for the admin dashboard.</p>
+
+<p>Module state: <code><a href="#scenarios">scenarios</a></code> keeps the saved scenarios in memory, and <code><a href="#incidents">incidents</a></code> keeps the
+incident history in <code>data/incidents.json</code> under the repository folder (set the
+<code>FIRESIM_INCIDENTS_FILE</code> environment variable to use another file, or to an empty value or
+<code>:memory:</code> to keep it in memory). A re-entrant lock lets one request at a time touch the
+live session. Every route is also served under <code>/api</code> (<code><a href="#ApiPrefixMiddleware">ApiPrefixMiddleware</a></code>), and the
+built UI is served from <code>/</code> when <code>FIRESIM_STATIC_DIR</code> names an existing folder
+(<code><a href="#mount_ui">mount_ui</a></code>).</p>
+</div>
+
+                
+                
+                
+            </section>
+                <section id="app">
+                    <div class="attr variable">
+            <span class="name">app</span>        =
+<span class="default_value">&lt;fastapi.applications.FastAPI object&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#app"></a>
+    
+    
+
+                </section>
+                <section id="ApiPrefixMiddleware">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">ApiPrefixMiddleware</span>:
+
+        
+    </div>
+    <a class="headerlink" href="#ApiPrefixMiddleware"></a>
+    
+            <div class="docstring"><p>ASGI middleware that serves <code>/api/&lt;path&gt;</code> as <code>/&lt;path&gt;</code>.</p>
+
+<p>The UI always calls the API under <code>/api</code>. In development the Vite proxy strips
+the prefix; when this app serves the built UI itself (the Docker image), this
+middleware does the same, so one UI build works in both setups.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>app:</strong>  The wrapped ASGI application.</li>
+</ul>
+</div>
+
+
+                            <div id="ApiPrefixMiddleware.__init__" class="classattr">
+                                <div class="attr function">
+            
+        <span class="name">ApiPrefixMiddleware</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">app</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">],</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">]]],</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">typing</span><span class="o">.</span><span class="n">Any</span><span class="p">]],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="kc">None</span><span class="p">]]</span></span>)</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ApiPrefixMiddleware.__init__"></a>
+    
+            <div class="docstring"><p>Wrap an ASGI application.</p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>app:</strong>  The ASGI application to call with the rewritten request.</li>
+</ul>
+</div>
+
+
+                            </div>
+                            <div id="ApiPrefixMiddleware.app" class="classattr">
+                                <div class="attr variable">
+            <span class="name">app</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ApiPrefixMiddleware.app"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="scenarios">
+                    <div class="attr variable">
+            <span class="name">scenarios</span>        =
+<span class="default_value">&lt;<a href="../persistence.html#InMemoryScenarioRepository">persistence.InMemoryScenarioRepository</a> object&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#scenarios"></a>
+    
+    
+
+                </section>
+                <section id="incidents">
+                    <div class="attr variable">
+            <span class="name">incidents</span>        =
+<span class="default_value">&lt;<a href="../persistence.html#InMemoryIncidentRepository">persistence.InMemoryIncidentRepository</a> object&gt;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#incidents"></a>
+    
+    
+
+                </section>
+                <section id="IgnitionPointIn">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">IgnitionPointIn</span><wbr>(<span class="base">pydantic.main.BaseModel</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#IgnitionPointIn"></a>
+    
+            <div class="docstring"><p>A cell where the fire starts, as given in a scenario request.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>x:</strong>  Column index of the cell (x grows to the east).</li>
+<li><strong>y:</strong>  Row index of the cell (y grows to the south).</li>
+<li><strong>tick:</strong>  Tick of the ignition (default 0); it is stored with the scenario, but every
+point is ignited when the simulation is built.</li>
+</ul>
+</div>
+
+
+                            <div id="IgnitionPointIn.x" class="classattr">
+                                <div class="attr variable">
+            <span class="name">x</span><span class="annotation">: int</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#IgnitionPointIn.x"></a>
+    
+    
+
+                            </div>
+                            <div id="IgnitionPointIn.y" class="classattr">
+                                <div class="attr variable">
+            <span class="name">y</span><span class="annotation">: int</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#IgnitionPointIn.y"></a>
+    
+    
+
+                            </div>
+                            <div id="IgnitionPointIn.tick" class="classattr">
+                                <div class="attr variable">
+            <span class="name">tick</span><span class="annotation">: int</span>        =
+<span class="default_value">0</span>
+
+        
+    </div>
+    <a class="headerlink" href="#IgnitionPointIn.tick"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="ScenarioIn">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">ScenarioIn</span><wbr>(<span class="base">pydantic.main.BaseModel</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn"></a>
+    
+            <div class="docstring"><p>Request body of <code>POST /scenarios</code>: the parameters of a new scenario.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>name:</strong>  Display name of the scenario.</li>
+<li><strong>width:</strong>  Map width in cells (1 to 400, default 200; city maps need at least 48).</li>
+<li><strong>height:</strong>  Map height in cells (1 to 400, default 200; city maps need at least 48).</li>
+<li><strong>seed:</strong>  Random seed (default 0); the same parameters and seed reproduce the same run.</li>
+<li><strong>wind_direction:</strong>  Direction the wind blows toward, in degrees clockwise from north
+(default 90, east).</li>
+<li><strong>wind_speed:</strong>  Wind speed in km/h (default 15).</li>
+<li><strong>ignition_points:</strong>  Cells where the fire starts; points outside the map or with nothing
+to burn are ignored. A city scenario without any gets a default point upwind of
+the town.</li>
+<li><strong>map_type:</strong>  <code>"wildland"</code> (default) or <code>"city"</code> (a town with people and fire crews).</li>
+<li><strong>hour:</strong>  Local hour the incident starts (0 to 23, default 14); in city scenarios it
+drives how many people are in each building.</li>
+<li><strong>crews:</strong>  Number of fire crews (0 to 12, default 4); city scenarios only.</li>
+<li><strong>auto_dispatch:</strong>  Whether crews dispatch themselves to the top priorities from the start
+(default False); city scenarios only.</li>
+</ul>
+</div>
+
+
+                            <div id="ScenarioIn.name" class="classattr">
+                                <div class="attr variable">
+            <span class="name">name</span><span class="annotation">: str</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.name"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.width" class="classattr">
+                                <div class="attr variable">
+            <span class="name">width</span><span class="annotation">: int</span>        =
+<span class="default_value">200</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.width"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.height" class="classattr">
+                                <div class="attr variable">
+            <span class="name">height</span><span class="annotation">: int</span>        =
+<span class="default_value">200</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.height"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.seed" class="classattr">
+                                <div class="attr variable">
+            <span class="name">seed</span><span class="annotation">: int</span>        =
+<span class="default_value">0</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.seed"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.wind_direction" class="classattr">
+                                <div class="attr variable">
+            <span class="name">wind_direction</span><span class="annotation">: float</span>        =
+<span class="default_value">90.0</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.wind_direction"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.wind_speed" class="classattr">
+                                <div class="attr variable">
+            <span class="name">wind_speed</span><span class="annotation">: float</span>        =
+<span class="default_value">15.0</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.wind_speed"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.ignition_points" class="classattr">
+                                <div class="attr variable">
+            <span class="name">ignition_points</span><span class="annotation">: list[<a href="#IgnitionPointIn">IgnitionPointIn</a>]</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.ignition_points"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.map_type" class="classattr">
+                                <div class="attr variable">
+            <span class="name">map_type</span><span class="annotation">: Literal[&#39;wildland&#39;, &#39;city&#39;]</span>        =
+<span class="default_value">&#39;wildland&#39;</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.map_type"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.hour" class="classattr">
+                                <div class="attr variable">
+            <span class="name">hour</span><span class="annotation">: int</span>        =
+<span class="default_value">14</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.hour"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.crews" class="classattr">
+                                <div class="attr variable">
+            <span class="name">crews</span><span class="annotation">: int</span>        =
+<span class="default_value">4</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.crews"></a>
+    
+    
+
+                            </div>
+                            <div id="ScenarioIn.auto_dispatch" class="classattr">
+                                <div class="attr variable">
+            <span class="name">auto_dispatch</span><span class="annotation">: bool</span>        =
+<span class="default_value">False</span>
+
+        
+    </div>
+    <a class="headerlink" href="#ScenarioIn.auto_dispatch"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="SpeedIn">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">SpeedIn</span><wbr>(<span class="base">pydantic.main.BaseModel</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#SpeedIn"></a>
+    
+            <div class="docstring"><p>Request body of <code>POST /simulation/speed</code>.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>speed:</strong>  Playback speed, 0.25 to 16.0 (the UI requests this many ticks per second).</li>
+</ul>
+</div>
+
+
+                            <div id="SpeedIn.speed" class="classattr">
+                                <div class="attr variable">
+            <span class="name">speed</span><span class="annotation">: float</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#SpeedIn.speed"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="CellIn">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">CellIn</span><wbr>(<span class="base">pydantic.main.BaseModel</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#CellIn"></a>
+    
+            <div class="docstring"><p>A grid cell to ignite or suppress.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>x:</strong>  Column index (x grows to the east).</li>
+<li><strong>y:</strong>  Row index (y grows to the south).</li>
+</ul>
+</div>
+
+
+                            <div id="CellIn.x" class="classattr">
+                                <div class="attr variable">
+            <span class="name">x</span><span class="annotation">: int</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#CellIn.x"></a>
+    
+    
+
+                            </div>
+                            <div id="CellIn.y" class="classattr">
+                                <div class="attr variable">
+            <span class="name">y</span><span class="annotation">: int</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#CellIn.y"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="SuppressIn">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">SuppressIn</span><wbr>(<span class="base">pydantic.main.BaseModel</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#SuppressIn"></a>
+    
+            <div class="docstring"><p>Request body of <code>POST /simulation/suppress</code>.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>cells:</strong>  Cells to suppress on the next tick (default: none).</li>
+</ul>
+</div>
+
+
+                            <div id="SuppressIn.cells" class="classattr">
+                                <div class="attr variable">
+            <span class="name">cells</span><span class="annotation">: list[<a href="#CellIn">CellIn</a>]</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#SuppressIn.cells"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="DispatchIn">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">DispatchIn</span><wbr>(<span class="base">pydantic.main.BaseModel</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#DispatchIn"></a>
+    
+            <div class="docstring"><p>Request body of <code>POST /simulation/dispatch</code>.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>asset_id:</strong>  Asset to protect: its <code>id</code> in the <code>assets</code> of <code>GET /simulation/map</code>.</li>
+</ul>
+</div>
+
+
+                            <div id="DispatchIn.asset_id" class="classattr">
+                                <div class="attr variable">
+            <span class="name">asset_id</span><span class="annotation">: int</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#DispatchIn.asset_id"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="AutoDispatchIn">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">AutoDispatchIn</span><wbr>(<span class="base">pydantic.main.BaseModel</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#AutoDispatchIn"></a>
+    
+            <div class="docstring"><p>Request body of <code>POST /simulation/auto-dispatch</code>.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>enabled:</strong>  True to turn automatic crew dispatch on, False to turn it off.</li>
+</ul>
+</div>
+
+
+                            <div id="AutoDispatchIn.enabled" class="classattr">
+                                <div class="attr variable">
+            <span class="name">enabled</span><span class="annotation">: bool</span>        =
+<span class="default_value">PydanticUndefined</span>
+
+        
+    </div>
+    <a class="headerlink" href="#AutoDispatchIn.enabled"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="BatchIn">
+                    <div class="attr class">
+            
+    <span class="def">class</span>
+    <span class="name">BatchIn</span><wbr>(<span class="base">pydantic.main.BaseModel</span>):
+
+        
+    </div>
+    <a class="headerlink" href="#BatchIn"></a>
+    
+            <div class="docstring"><p>Request body of <code>POST /incidents/simulate</code>: a batch of headless city incidents.</p>
+
+<h6 id="attributes">Attributes:</h6>
+
+<ul>
+<li><strong>count:</strong>  Number of incidents to run (1 to 20, default 5).</li>
+<li><strong>size:</strong>  Side of each square town map, in cells (48 to 128, default 80).</li>
+<li><strong>max_ticks:</strong>  Tick limit per run (50 to 3000, default 800); a run still burning at the
+limit is recorded with outcome <code>"time_limit"</code>.</li>
+<li><strong>seed:</strong>  Seed for drawing the run conditions; None (default) draws new ones every time.</li>
+</ul>
+</div>
+
+
+                            <div id="BatchIn.count" class="classattr">
+                                <div class="attr variable">
+            <span class="name">count</span><span class="annotation">: int</span>        =
+<span class="default_value">5</span>
+
+        
+    </div>
+    <a class="headerlink" href="#BatchIn.count"></a>
+    
+    
+
+                            </div>
+                            <div id="BatchIn.size" class="classattr">
+                                <div class="attr variable">
+            <span class="name">size</span><span class="annotation">: int</span>        =
+<span class="default_value">80</span>
+
+        
+    </div>
+    <a class="headerlink" href="#BatchIn.size"></a>
+    
+    
+
+                            </div>
+                            <div id="BatchIn.max_ticks" class="classattr">
+                                <div class="attr variable">
+            <span class="name">max_ticks</span><span class="annotation">: int</span>        =
+<span class="default_value">800</span>
+
+        
+    </div>
+    <a class="headerlink" href="#BatchIn.max_ticks"></a>
+    
+    
+
+                            </div>
+                            <div id="BatchIn.seed" class="classattr">
+                                <div class="attr variable">
+            <span class="name">seed</span><span class="annotation">: int | None</span>        =
+<span class="default_value">None</span>
+
+        
+    </div>
+    <a class="headerlink" href="#BatchIn.seed"></a>
+    
+    
+
+                            </div>
+                </section>
+                <section id="health">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.get">@app.get(&#39;/health&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">health</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#health"></a>
+    
+            <div class="docstring"><p>Report that the API is up.</p>
+
+<p>A liveness check; it does not touch the simulation.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>{"status": "ok"}</code>.</p>
+</blockquote>
+</div>
+
+
+                </section>
+                <section id="create_scenario">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/scenarios&#39;, status_code=201)</div>
+
+        <span class="def">def</span>
+        <span class="name">create_scenario</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">body</span><span class="p">:</span> <span class="n"><a href="#ScenarioIn">ScenarioIn</a></span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#create_scenario"></a>
+    
+            <div class="docstring"><p>Create a scenario and make it the active simulation.</p>
+
+<p>Builds the map and engine and replaces any previous live session; the new simulation
+starts idle at tick 0, and its run counts as a new incident. The scenario is also saved
+so it can be listed and replayed. A city scenario without ignition points gets a default
+ignition upwind of the town, and the saved scenario keeps the points actually used.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>body:</strong>  Parameters of the new scenario.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>{"id": &lt;scenario id&gt;, "name": &lt;scenario name&gt;}</code>, with status 201.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  422 if the engine rejects the scenario, e.g. a city map with a side
+shorter than 48 cells; nothing is saved and the live session is kept.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="list_scenarios">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.get">@app.get(&#39;/scenarios&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">list_scenarios</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#list_scenarios"></a>
+    
+            <div class="docstring"><p>List the saved scenarios.</p>
+
+<p>Scenarios are kept in memory, so the list starts empty after an API restart.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>One dict per scenario, in creation order, with <code>id</code>, <code>name</code> and <code>payload</code> (the
+  parameters the scenario was created with).</p>
+</blockquote>
+</div>
+
+
+                </section>
+                <section id="get_scenario">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.get">@app.get(&#39;/scenarios/{scenario_id}&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">get_scenario</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">scenario_id</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#get_scenario"></a>
+    
+            <div class="docstring"><p>Get one saved scenario.</p>
+
+<p>Returns its id, its name and the parameters it was created with.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>scenario_id:</strong>  Id returned by <code>POST /scenarios</code>.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The scenario as <code>{"id", "name", "payload"}</code>.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  404 if no scenario has this id.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="delete_scenario">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.delete">@app.delete(&#39;/scenarios/{scenario_id}&#39;, status_code=204)</div>
+
+        <span class="def">def</span>
+        <span class="name">delete_scenario</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">scenario_id</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="kc">None</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#delete_scenario"></a>
+    
+            <div class="docstring"><p>Delete a saved scenario.</p>
+
+<p>Only the saved record is removed; a live simulation built from it keeps running.
+Responds with 204 No Content.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>scenario_id:</strong>  Id of the scenario to delete.</li>
+</ul>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  404 if no scenario has this id.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="replay_scenario">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.get">@app.get(&#39;/scenarios/{scenario_id}/replay&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">replay_scenario</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">scenario_id</span><span class="p">:</span> <span class="nb">str</span>, </span><span class="param"><span class="n">max_ticks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="mi">2000</span><span class="p">)</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#replay_scenario"></a>
+    
+            <div class="docstring"><p>Deterministically replay a saved scenario and return its per-tick timeline.</p>
+
+<p>Runs are reproducible (seeded RNG + procedural map), so a saved scenario
+replays to the exact same sequence of states without the original live
+session. Each frame is the cell-state counts at that tick (plus people and
+buildings for city scenarios).</p>
+
+<p>The replay uses only the saved parameters (including ignitions added before the first
+tick); spot fires, dispatches, suppression and auto-dispatch changes made during the
+live run are not replayed.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>scenario_id:</strong>  Id of the saved scenario.</li>
+<li><strong>max_ticks:</strong>  Maximum number of ticks to simulate (1 to 10000, default 2000).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>A dict with <code>scenario_id</code>; <code>ticks</code> (ticks simulated); <code>final_state</code>
+  (<code>"completed"</code> if the fire went out, <code>"running"</code> if <code>max_ticks</code> was reached
+  first); and <code>frames</code>, one for each tick from 0 to <code>ticks</code>, each with <code><a href="#tick">tick</a></code> and
+  <code>counts</code> (cells per state) plus, for city scenarios, <code>city</code> with <code>at_risk</code>,
+  <code>casualties</code>, <code>evacuated</code> and <code>buildings_destroyed</code>.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  404 if no scenario has this id; 422 if the engine rejects the saved
+scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="play">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/play&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">play</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#play"></a>
+    
+            <div class="docstring"><p>Start or resume the active simulation.</p>
+
+<p>An idle or paused simulation becomes running; in any other state nothing changes.
+Playing does not advance time by itself: each <code>POST /simulation/tick</code> then advances
+one tick.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="pause">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/pause&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">pause</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#pause"></a>
+    
+            <div class="docstring"><p>Pause the active simulation.</p>
+
+<p>A running simulation becomes paused; in any other state nothing changes.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="step">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/step&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">step</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#step"></a>
+    
+            <div class="docstring"><p>Advance the active simulation by exactly one tick and leave it paused.</p>
+
+<p>Works from idle, paused or running and does nothing once the incident is completed. If
+the fire goes out on this tick the simulation completes instead, and a city incident is
+recorded in the incident history.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="tick">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/tick&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">tick</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#tick"></a>
+    
+            <div class="docstring"><p>Advance the active simulation by one tick if it is running.</p>
+
+<p>Clients call this repeatedly to play the simulation (the UI paces the calls by the
+playback speed); when the simulation is not running nothing changes. When the fire goes
+out, a city incident is recorded in the incident history.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="reset">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/reset&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">reset</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#reset"></a>
+    
+            <div class="docstring"><p>Reset the active simulation to its initial condition.</p>
+
+<p>Goes back to tick 0 in the idle state with the starting fire (including ignitions added
+before the first tick) and re-seeds the random generator; spot fires and queued
+suppression are discarded. City scenarios also reset people, crews and the event log.
+The next run is recorded as a new incident.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="speed">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/speed&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">speed</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">body</span><span class="p">:</span> <span class="n"><a href="#SpeedIn">SpeedIn</a></span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#speed"></a>
+    
+            <div class="docstring"><p>Set the playback speed of the active simulation.</p>
+
+<p>The value is stored and reported as <code><a href="#speed">speed</a></code> in the state payload. The server does not
+advance time on its own; the UI uses the speed as the number of ticks to request per
+second.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>body:</strong>  The new speed (0.25 to 16.0).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="state">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.get">@app.get(&#39;/simulation/state&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">state</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#state"></a>
+    
+            <div class="docstring"><p>Get the live state of the active simulation.</p>
+
+<p>Every <code>/simulation</code> endpoint except <code>GET /simulation/map</code> returns this same payload.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>A dict with <code><a href="#state">state</a></code> (<code>"idle"</code>, <code>"running"</code>, <code>"paused"</code> or <code>"completed"</code>),
+  <code><a href="#tick">tick</a></code>, <code><a href="#speed">speed</a></code>, <code>counts</code> (number of cells per state: <code>unburned</code>,
+  <code>igniting</code>, <code>burning</code>, <code>burned</code>, <code>suppressed</code>), <code>grid</code> (<code>height</code> rows of
+  <code>width</code> cell-state codes: 0 unburned, 1 igniting, 2 burning, 3 burned,
+  4 suppressed), <code>map_type</code>, <code>scenario</code> (<code>id</code> and <code>name</code>), <code>wind</code>
+  (<code>direction</code> the wind blows toward, in degrees from north, and <code><a href="#speed">speed</a></code> in km/h),
+  <code>incident_id</code> (id of this run's history record, or None until it is recorded) and
+  <code>city</code> (for city scenarios the town's dynamic state: clock, population and
+  building totals, per-asset arrays, priorities, crews, recent events and hazards;
+  None for wildland).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="simulation_map">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.get">@app.get(&#39;/simulation/map&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">simulation_map</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#simulation_map"></a>
+    
+            <div class="docstring"><p>The static map (land use, fuel, elevation, assets). Fetch once per scenario.</p>
+
+<p>Wildland maps have no assets, fire station, crews or asset kinds, and their land use is
+derived from the fuel layer.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>A dict with <code>map_type</code>, <code>width</code>, <code>height</code>, <code>cell_size_m</code> (10), <code>landuse</code>,
+  <code>fuel</code> and <code>elevation</code> (<code>height</code> rows of <code>width</code> values: land-use codes,
+  fuel codes and elevation rounded to 3 decimals), <code>assets</code> (one dict per building,
+  park or road segment with <code>id</code>, <code>kind</code>, <code>name</code>, <code>street</code>, <code>x</code>, <code>y</code>,
+  <code>w</code>, <code>h</code>, <code>floors</code>, <code>capacity</code>, <code>parts</code> and <code>occupants0</code>, the people
+  present at the start), <code>station</code> (<code>{"x", "y"}</code> of the fire station, or None),
+  <code>crews</code> (<code>id</code> and <code>name</code> of each crew), <code>hour</code> and <code>kinds</code> (label,
+  vulnerability and hazard of each asset kind).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="ignite">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/ignite&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">ignite</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">body</span><span class="p">:</span> <span class="n"><a href="#CellIn">CellIn</a></span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#ignite"></a>
+    
+            <div class="docstring"><p>Start a fire at a cell. Before the first tick it becomes part of the scenario.</p>
+
+<p>At tick 0 the cell is added to the scenario's ignition points, so resets and replays
+keep it; later it is a spot fire, which a reset removes.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>body:</strong>  The cell to ignite.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario or the incident is closed (reset
+first); 422 if the cell is outside the map or has nothing to burn.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="suppress">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/suppress&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">suppress</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">body</span><span class="p">:</span> <span class="n"><a href="#SuppressIn">SuppressIn</a></span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#suppress"></a>
+    
+            <div class="docstring"><p>Queue suppression on cells (same effect as a bus suppression command).</p>
+
+<p>The cells are treated on the next tick: those inside the map that are unburned,
+igniting or burning become suppressed, the others are ignored. The returned state does
+not show them yet.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>body:</strong>  The cells to suppress.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="dispatch">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/dispatch&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">dispatch</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">body</span><span class="p">:</span> <span class="n"><a href="#DispatchIn">DispatchIn</a></span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#dispatch"></a>
+    
+            <div class="docstring"><p>Send the nearest available fire crew to an asset.</p>
+
+<p>City scenarios only. The nearest free crew (city-block distance) travels there, then
+works at the asset for a limited number of ticks, suppressing fire in and around it and
+helping people get out.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>body:</strong>  The asset to protect.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  404 if the asset does not exist; 409 if there is no active scenario,
+it is not a city scenario, the incident is closed or no crew is available.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="auto_dispatch">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/auto-dispatch&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">auto_dispatch</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">body</span><span class="p">:</span> <span class="n"><a href="#AutoDispatchIn">AutoDispatchIn</a></span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#auto_dispatch"></a>
+    
+            <div class="docstring"><p>Turn automatic crew dispatch on or off.</p>
+
+<p>City scenarios only. While it is on, before every tick the most urgent assets that no
+crew is assigned to get the nearest free crew, in priority order; low-priority assets
+are skipped. The change is written to the incident's event log.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>body:</strong>  Whether automatic dispatch should be on.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario or it is not a city scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="end_incident">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/simulation/end&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">end_incident</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#end_incident"></a>
+    
+            <div class="docstring"><p>Close the incident now and record it in the history (city scenarios).</p>
+
+<p>The simulation becomes completed whatever its state. A city incident that has run at
+least one tick and is not recorded yet is saved with outcome <code>"stopped"</code>, and its id
+appears as <code>incident_id</code> in the returned state. Wildland scenarios are only stopped.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The live state payload (same shape as <code>GET /simulation/state</code>).</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  409 if there is no active scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="list_incidents">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.get">@app.get(&#39;/incidents&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">list_incidents</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#list_incidents"></a>
+    
+            <div class="docstring"><p>List the incident history, newest first.</p>
+
+<p>Each entry is a brief record without the per-tick timeline and key events; get them
+with <code>GET /incidents/{incident_id}</code>.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>One dict per incident (<code>IncidentRecord.brief</code>) with <code>id</code>, <code>name</code>,
+  <code>scenario_id</code>, <code>source</code>, <code>outcome</code>, <code>started_at</code>, <code>ended_at</code>, <code>ticks</code>,
+  <code>params</code> and <code>summary</code> (without <code>timeline</code> and <code>key_events</code>).</p>
+</blockquote>
+</div>
+
+
+                </section>
+                <section id="get_incident">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.get">@app.get(&#39;/incidents/{incident_id}&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">get_incident</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">incident_id</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#get_incident"></a>
+    
+            <div class="docstring"><p>Get one incident from the history, including its timeline and key events.</p>
+
+<p>Returns the full record: run parameters, outcome and the complete summary (people,
+buildings, losses, key events and the per-tick timeline).</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>incident_id:</strong>  Id of the incident.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>The full <code>IncidentRecord</code> as a dict: the same keys as a <code>GET /incidents</code> entry,
+  with the complete <code>summary</code>.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  404 if no incident has this id.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="delete_incident">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.delete">@app.delete(&#39;/incidents/{incident_id}&#39;, status_code=204)</div>
+
+        <span class="def">def</span>
+        <span class="name">delete_incident</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">incident_id</span><span class="p">:</span> <span class="nb">str</span></span><span class="return-annotation">) -> <span class="kc">None</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#delete_incident"></a>
+    
+            <div class="docstring"><p>Delete one incident from the history.</p>
+
+<p>Responds with 204 No Content.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>incident_id:</strong>  Id of the incident to delete.</li>
+</ul>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  404 if no incident has this id.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="clear_incidents">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.delete">@app.delete(&#39;/incidents&#39;)</div>
+
+        <span class="def">def</span>
+        <span class="name">clear_incidents</span><span class="signature pdoc-code condensed">(<span class="return-annotation">) -> <span class="nb">dict</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#clear_incidents"></a>
+    
+            <div class="docstring"><p>Delete every incident from the history.</p>
+
+<p>Returns how many incidents were deleted.</p>
+
+<p></p>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p><code>{"deleted": &lt;number of incidents deleted&gt;}</code>.</p>
+</blockquote>
+</div>
+
+
+                </section>
+                <section id="simulate_incidents">
+                    <div class="attr function">
+                    <div class="decorator decorator-app.post">@app.post(&#39;/incidents/simulate&#39;, status_code=201)</div>
+
+        <span class="def">def</span>
+        <span class="name">simulate_incidents</span><span class="signature pdoc-code condensed">(<span class="param"><span class="n">body</span><span class="p">:</span> <span class="n"><a href="#BatchIn">BatchIn</a></span></span><span class="return-annotation">) -> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#simulate_incidents"></a>
+    
+            <div class="docstring"><p>Run city incidents headless with varied conditions and record them.</p>
+
+<p>Each run is a real simulation (random seed, wind, time of day, crews and
+response mode); the parameters are stored, so every run can be replayed.</p>
+
+<p>The conditions are drawn from a generator seeded with <code>seed</code>: repeating a request with
+the same seed and settings gives runs with the same conditions and outcomes, and without
+a seed every request differs. The live simulation is not affected.</p>
+
+<p></p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>body:</strong>  Number of runs, town size, tick limit per run and optional seed.</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>One brief record per run, in run order (same shape as the <code>GET /incidents</code>
+  entries), each with source <code>"simulated"</code> and outcome <code>"extinguished"</code> or
+  <code>"time_limit"</code>; the response status is 201.</p>
+</blockquote>
+
+<h6 id="raises">Raises:</h6>
+
+<ul>
+<li><strong>HTTPException:</strong>  422 if the engine rejects a generated scenario.</li>
+</ul>
+</div>
+
+
+                </section>
+                <section id="mount_ui">
+                    <div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">mount_ui</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">application</span><span class="p">:</span> <span class="n">fastapi</span><span class="o">.</span><span class="n">applications</span><span class="o">.</span><span class="n">FastAPI</span>,</span><span class="param">	<span class="n">directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span></span><span class="return-annotation">) -> <span class="nb">bool</span>:</span></span>
+
+        
+    </div>
+    <a class="headerlink" href="#mount_ui"></a>
+    
+            <div class="docstring"><p>Serve a built UI (the <code>frontend/dist</code> folder) from the root of an app.</p>
+
+<p>Call it after every API route is registered: the mount answers only the paths
+the routes do not, and <code>html=True</code> serves <code>index.html</code> for <code>/</code>.</p>
+
+<h6 id="arguments">Arguments:</h6>
+
+<ul>
+<li><strong>application:</strong>  The FastAPI app to mount the UI on.</li>
+<li><strong>directory:</strong>  Folder that holds the built UI (<code>index.html</code> and <code>assets/</code>).</li>
+</ul>
+
+<h6 id="returns">Returns:</h6>
+
+<blockquote>
+  <p>True if the folder exists and was mounted, False if it was skipped.</p>
+</blockquote>
+</div>
+
+
+                </section>
+    </main>
+<script>
+    function escapeHTML(html) {
+        return document.createElement('div').appendChild(document.createTextNode(html)).parentNode.innerHTML;
+    }
+
+    const originalContent = document.querySelector("main.pdoc");
+    let currentContent = originalContent;
+
+    function setContent(innerHTML) {
+        let elem;
+        if (innerHTML) {
+            elem = document.createElement("main");
+            elem.classList.add("pdoc");
+            elem.innerHTML = innerHTML;
+        } else {
+            elem = originalContent;
+        }
+        if (currentContent !== elem) {
+            currentContent.replaceWith(elem);
+            currentContent = elem;
+        }
+    }
+
+    function getSearchTerm() {
+        return (new URL(window.location)).searchParams.get("search");
+    }
+
+    const searchBox = document.querySelector(".pdoc input[type=search]");
+    searchBox.addEventListener("input", function () {
+        let url = new URL(window.location);
+        if (searchBox.value.trim()) {
+            url.hash = "";
+            url.searchParams.set("search", searchBox.value);
+        } else {
+            url.searchParams.delete("search");
+        }
+        history.replaceState("", "", url.toString());
+        onInput();
+    });
+    window.addEventListener("popstate", onInput);
+
+
+    let search, searchErr;
+
+    async function initialize() {
+        try {
+            search = await new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.type = "text/javascript";
+                script.async = true;
+                script.onload = () => resolve(window.pdocSearch);
+                script.onerror = (e) => reject(e);
+                script.src = "../search.js";
+                document.getElementsByTagName("head")[0].appendChild(script);
+            });
+        } catch (e) {
+            console.error("Cannot fetch pdoc search index");
+            searchErr = "Cannot fetch search index.";
+        }
+        onInput();
+
+        document.querySelector("nav.pdoc").addEventListener("click", e => {
+            if (e.target.hash) {
+                searchBox.value = "";
+                searchBox.dispatchEvent(new Event("input"));
+            }
+        });
+    }
+
+    function onInput() {
+        setContent((() => {
+            const term = getSearchTerm();
+            if (!term) {
+                return null
+            }
+            if (searchErr) {
+                return `<h3>Error: ${searchErr}</h3>`
+            }
+            if (!search) {
+                return "<h3>Searching...</h3>"
+            }
+
+            window.scrollTo({top: 0, left: 0, behavior: 'auto'});
+
+            const results = search(term);
+
+            let html;
+            if (results.length === 0) {
+                html = `No search results for '${escapeHTML(term)}'.`
+            } else {
+                html = `<h4>${results.length} search result${results.length > 1 ? "s" : ""} for '${escapeHTML(term)}'.</h4>`;
+            }
+            for (let result of results.slice(0, 10)) {
+                let doc = result.doc;
+                let url = `../${doc.modulename.replaceAll(".", "/")}.html`;
+                if (doc.qualname) {
+                    url += `#${doc.qualname}`;
+                }
+
+                let heading;
+                switch (result.doc.kind) {
+                    case "function":
+                        if (doc.fullname.endsWith(".__init__")) {
+                            heading = `<span class="name">${doc.fullname.replace(/\.__init__$/, "")}</span>${doc.signature}`;
+                        } else {
+                            heading = `<span class="def">${doc.funcdef}</span> <span class="name">${doc.fullname}</span>${doc.signature}`;
+                        }
+                        break;
+                    case "class":
+                        heading = `<span class="def">class</span> <span class="name">${doc.fullname}</span>`;
+                        if (doc.bases)
+                            heading += `<wbr>(<span class="base">${doc.bases}</span>)`;
+                        heading += `:`;
+                        break;
+                    case "variable":
+                        heading = `<span class="name">${doc.fullname}</span>`;
+                        if (doc.annotation)
+                            heading += `<span class="annotation">${doc.annotation}</span>`;
+                        if (doc.default_value)
+                            heading += `<span class="default_value"> = ${doc.default_value}</span>`;
+                        break;
+                    default:
+                        heading = `<span class="name">${doc.fullname}</span>`;
+                        break;
+                }
+                html += `
+                        <section class="search-result">
+                        <a href="${url}" class="attr ${doc.kind}">${heading}</a>
+                        <div class="docstring">${doc.doc}</div>
+                        </section>
+                    `;
+
+            }
+            return html;
+        })());
+    }
+
+    if (getSearchTerm()) {
+        initialize();
+        searchBox.value = getSearchTerm();
+        onInput();
+    } else {
+        searchBox.addEventListener("focus", initialize, {once: true});
+    }
+
+    searchBox.addEventListener("keydown", e => {
+        if (["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) {
+            let focused = currentContent.querySelector(".search-result.focused");
+            if (!focused) {
+                currentContent.querySelector(".search-result").classList.add("focused");
+            } else if (
+                e.key === "ArrowDown"
+                && focused.nextElementSibling
+                && focused.nextElementSibling.classList.contains("search-result")
+            ) {
+                focused.classList.remove("focused");
+                focused.nextElementSibling.classList.add("focused");
+                focused.nextElementSibling.scrollIntoView({
+                    behavior: "smooth",
+                    block: "nearest",
+                    inline: "nearest"
+                });
+            } else if (
+                e.key === "ArrowUp"
+                && focused.previousElementSibling
+                && focused.previousElementSibling.classList.contains("search-result")
+            ) {
+                focused.classList.remove("focused");
+                focused.previousElementSibling.classList.add("focused");
+                focused.previousElementSibling.scrollIntoView({
+                    behavior: "smooth",
+                    block: "nearest",
+                    inline: "nearest"
+                });
+            } else if (
+                e.key === "Enter"
+            ) {
+                focused.querySelector("a").click();
+            }
+        }
+    });
+</script></body>
+</html>
