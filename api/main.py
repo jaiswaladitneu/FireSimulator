@@ -21,7 +21,9 @@ from typing import Literal
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from engine import Scenario, SimState
 from engine.cell import FuelType
@@ -48,6 +50,43 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class ApiPrefixMiddleware:
+    """ASGI middleware that serves ``/api/<path>`` as ``/<path>``.
+
+    The UI always calls the API under ``/api``. In development the Vite proxy strips
+    the prefix; when this app serves the built UI itself (the Docker image), this
+    middleware does the same, so one UI build works in both setups.
+
+    Attributes:
+        app: The wrapped ASGI application.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Wrap an ASGI application.
+
+        Args:
+            app: The ASGI application to call with the rewritten request.
+        """
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Strip a leading ``/api`` from HTTP request paths, then call the wrapped app.
+
+        Args:
+            scope: ASGI connection scope; ``path`` and ``raw_path`` are rewritten.
+            receive: ASGI receive channel, passed through unchanged.
+            send: ASGI send channel, passed through unchanged.
+        """
+        path = scope.get("path", "")
+        if scope["type"] == "http" and (path == "/api" or path.startswith("/api/")):
+            path = path[4:] or "/"
+            scope = {**scope, "path": path, "raw_path": path.encode()}
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(ApiPrefixMiddleware)
 
 
 def _incident_repository():
@@ -471,3 +510,27 @@ def simulate_incidents(body: BatchIn) -> list[dict]:
         outcome = "extinguished" if s.engine.state == SimState.COMPLETED else "time_limit"
         out.append(_record(s, outcome, "simulated", started).brief())
     return out
+
+
+# ---- built UI (packaged image) --------------------------------------------
+def mount_ui(application: FastAPI, directory: str | os.PathLike[str]) -> bool:
+    """Serve a built UI (the ``frontend/dist`` folder) from the root of an app.
+
+    Call it after every API route is registered: the mount answers only the paths
+    the routes do not, and ``html=True`` serves ``index.html`` for ``/``.
+
+    Args:
+        application: The FastAPI app to mount the UI on.
+        directory: Folder that holds the built UI (``index.html`` and ``assets/``).
+
+    Returns:
+        True if the folder exists and was mounted, False if it was skipped.
+    """
+    if not directory or not Path(directory).is_dir():
+        return False
+    application.mount("/", StaticFiles(directory=directory, html=True), name="ui")
+    return True
+
+
+# The Docker image sets FIRESIM_STATIC_DIR, so one container serves the API and the UI.
+mount_ui(app, os.environ.get("FIRESIM_STATIC_DIR", ""))
