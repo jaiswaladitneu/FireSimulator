@@ -1,25 +1,125 @@
+# CI/CD pipeline. Every job calls the build script developers run locally (build.py).
+#
+#   triggers: a push to any branch, a pull request to main, or a manual run
+#             (Actions tab -> CI -> Run workflow, or: gh workflow run CI --ref <branch>)
+#
+#   backend  ──┐
+#              ├──> package: Docker image + smoke test ──> publish to GHCR (pushes to main only)
+#   frontend ──┘
 name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the run still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   backend:
+    name: Backend - lint, compile, test, docs
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements*.txt
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest httpx ruff
+        run: python build.py setup --scope backend
       - name: Lint (ruff)
-        run: ruff check .
-      - name: Run tests
-        run: pytest -q
+        run: python build.py lint --scope backend
+      - name: Compile (byte-compile every module)
+        run: python build.py compile --scope backend
+      - name: Test with coverage (pytest + pytest-cov, fails under 90 %)
+        run: python build.py test --scope backend
+      - name: Coverage summary
+        if: always()
+        run: python -m coverage report --format=markdown >> "$GITHUB_STEP_SUMMARY"
+      - name: Generate the API reference (pdoc)
+        run: python build.py docs
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: |
+            htmlcov/
+            coverage.xml
+          retention-days: 14
+      - name: Upload API reference
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-docs
+          path: docs/api/
+          retention-days: 14
+
+  frontend:
+    name: Frontend - lint, type-check, bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies (npm ci)
+        run: python build.py setup --scope frontend
+      - name: Lint (oxlint)
+        run: python build.py lint --scope frontend
+      - name: Type-check and bundle (tsc + Vite)
+        run: python build.py compile --scope frontend
+      - name: Unit tests (runs when package.json defines a test script)
+        run: python build.py test --scope frontend
+      - name: Upload UI bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-dist
+          path: frontend/dist/
+          retention-days: 14
+
+  package:
+    name: Package - Docker image, smoke test, publish
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Name the image (ghcr.io/<owner>/<repo>, lower case)
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - name: Build the image (multi-stage Dockerfile)
+        run: python build.py package --image "$IMAGE:${GITHUB_SHA::7}"
+      - name: Smoke test the container
+        run: python build.py smoke --image "$IMAGE:${GITHUB_SHA::7}"
+      - name: Log in to the GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the image (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker tag "$IMAGE:${GITHUB_SHA::7}" "$IMAGE:latest"
+          docker push "$IMAGE:${GITHUB_SHA::7}"
+          docker push "$IMAGE:latest"
+          echo "Published \`$IMAGE:latest\` and \`$IMAGE:${GITHUB_SHA::7}\`" >> "$GITHUB_STEP_SUMMARY"
