@@ -1,0 +1,20 @@
+# Keep the Docker build context small and platform-neutral.
+.git
+.github
+**/__pycache__
+**/*.py[cod]
+.venv
+venv
+.pytest_cache
+.ruff_cache
+.coverage
+.coverage.*
+coverage.xml
+htmlcov
+data
+docs
+tests
+infra
+# The UI is installed and built inside the image (npm ci + npm run build).
+frontend/node_modules
+frontend/dist

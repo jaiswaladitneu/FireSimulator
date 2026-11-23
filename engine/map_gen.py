@@ -15,6 +15,7 @@ _SMOOTH_KERNEL /= _SMOOTH_KERNEL.sum()
 
 
 def _smooth(a: np.ndarray) -> np.ndarray:
+    """Blur a 2-D array once with ``_SMOOTH_KERNEL`` (borders repeat the edge values)."""
     pad = np.pad(a, 1, mode="edge")
     out = np.zeros_like(a)
     for dy in range(3):
@@ -28,6 +29,24 @@ class MapGenerator:
 
     @staticmethod
     def generate(width: int, height: int, seed: int = 0, *, smoothing: int = 6) -> Grid:
+        """Generate a reproducible wildland grid from a seed.
+
+        The same arguments always give the same grid. Elevation is random noise smoothed
+        ``smoothing`` times and rescaled to 0..1. Each cell's fuel is drawn independently as
+        ``GRASS``, ``SHRUB`` or ``FOREST`` with probabilities 0.45, 0.33 and 0.22, and its
+        moisture is uniform in 0.10..0.30.
+
+        Args:
+            width: Number of columns (cells along x).
+            height: Number of rows (cells along y).
+            seed: Seed for the NumPy random generator.
+            smoothing: Number of smoothing passes over the elevation noise; more passes give
+                smoother terrain.
+
+        Returns:
+            A new ``Grid`` with ``fuel``, ``moisture`` and ``elevation`` filled in and every
+            cell unburned.
+        """
         rng = np.random.default_rng(seed)
         elev = rng.random((height, width)).astype(np.float32)
         for _ in range(smoothing):

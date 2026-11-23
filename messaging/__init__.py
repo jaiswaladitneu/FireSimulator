@@ -1,7 +1,7 @@
 """Messaging & interoperability (Epic E3).
 
 The domain depends on the ``MessageBus`` port (Adapter pattern); ``InMemoryBus``
-is used for tests and local runs, and a NATS adapter plugs in behind the same
+is used for tests and local runs, and a NATS adapter can plug in behind the same
 port in production. Events are published on versioned JSON topics so other
 Fireforce6 components can build against a stable contract.
 """

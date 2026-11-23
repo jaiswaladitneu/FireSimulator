@@ -1,0 +1,9 @@
+# Development, test, documentation and CI tools.
+# Runtime dependencies come from requirements.txt (installed by the first line).
+-r requirements.txt
+pytest>=8.0
+pytest-cov>=7.0
+httpx>=0.27
+ruff>=0.6
+# Pinned so the generated API reference (docs/api) is reproducible.
+pdoc==16.0.0

@@ -1,0 +1,46 @@
+@startuml architecture
+!include theme.iuml
+title Fire Simulator architecture as implemented (Part C)
+skinparam componentStyle rectangle
+skinparam nodesep 40
+skinparam ranksep 50
+
+actor "Incident commander\n/ administrator" as user
+
+node "Web browser" {
+  component "Command center UI\n(React 19, TypeScript, Three.js)" as ui
+}
+
+node "Docker container  firesim:local\n(python:3.12-slim, uvicorn :8000)" as container {
+  component "Built UI\n(static files from frontend/dist)" as static
+  component "REST API\n(FastAPI, pydantic)" as api
+  component "Simulation engine + city layer\n(Python, NumPy)" as engine
+  component "Messaging\n(MessageBus port, in-memory bus)" as bus
+  component "Persistence\n(repository interfaces)" as repo
+  database "incidents.json\n(volume /app/data)" as json
+}
+
+component "NATS" as nats #line.dashed
+database "PostgreSQL" as pg #line.dashed
+database "Redis" as redis #line.dashed
+cloud "Other Fireforce6\ncomponents" as other #line.dashed
+
+user --> ui
+ui --> static : GET /  (HTML, JS, CSS)
+ui --> api : REST  /api/...  (JSON, polling)
+api --> engine : sessions, ticks, commands
+api --> repo : scenarios, incident history
+repo --> json
+engine ..> bus : fire events (when a bus is wired)
+bus ..> engine : suppression commands
+bus ..> nats : planned adapter
+repo ..> pg : planned
+api ..> redis : planned live-state cache
+other ..> nats : planned
+
+legend right
+  Solid: implemented and deployed.
+  Dashed: designed in Part B, not built yet
+  (the app runs without them).
+endlegend
+@enduml

@@ -1,0 +1,135 @@
+@startuml class-frontend
+!include theme.iuml
+set separator none
+title Frontend: incident command center and admin dashboard (as implemented)
+hide empty members
+skinparam nodesep 30
+skinparam ranksep 45
+
+package "views  -  React 19 + TypeScript function components" {
+  class App <<component>> {
+    {field} route: command | dashboard (URL hash)
+    sim: Simulation
+  }
+  class TopBar <<component>>
+  class CommandCenter <<container>> {
+    selection, hover, camera focus
+    ignite mode, big-screen view
+  }
+  class AdminDashboard <<container>> {
+    incidents: IncidentBrief[]
+    filters: Filters
+    --
+    applyFilters() / aggregate() / toCsv()
+  }
+  class "Command panels" as Panels <<component>> {
+    ScenarioPanel, LifeSafetyHud, LiveStatus
+    PriorityQueue, CrewPanel, EventFeed
+    Inspector, PlaybackBar, MapOverlays
+  }
+  class SceneView <<component>> <<Adapter>> {
+    creates one CityScene (useRef)
+    forwards map, state, selection
+  }
+  class "IncidentTable, IncidentDetail" as DashParts <<component>>
+  class "SVG chart kit" as Charts <<component>> {
+    ChartCard, ColumnChart, RankedBars
+    CompareBars, SegmentedBar, LineChart
+  }
+}
+
+package "state and data access" {
+  class useSimulation <<hook>> {
+    playback loop: POST /simulation/tick
+      every 1/speed s while running
+    health check every 8 s
+    --
+    returns Simulation
+  }
+  class useHashRoute <<hook>>
+  interface Simulation {
+    map: MapData | null
+    sim: SimPayload | null
+    online, busy: boolean
+    error: string | null
+    speed: number
+    --
+    create(params) / play() / pause() / step()
+    reset() / end() / setSpeed(speed)
+    ignite(x, y) / dispatch(assetId)
+    setAutoDispatch(enabled)
+  }
+  class api <<Facade>> {
+    createScenario() / state() / map() / health()
+    play() / pause() / step() / tick() / reset()
+    speed() / end() / ignite() / dispatch() / autoDispatch()
+    incidents() / incident() / deleteIncident()
+    clearIncidents() / simulateIncidents()
+  }
+  class ApiError {
+    status: number
+  }
+  class "types.ts" as Types <<DTO>> {
+    SimPayload, MapData, CityState, Priority
+    Crew, SimEvent, ScenarioParams
+    IncidentBrief, IncidentFull
+  }
+}
+
+package "3-D scene  -  Three.js" {
+  class CityScene <<controller>> {
+    constructor(container, callbacks)
+    setMap(map) / update(sim)
+    setWind(directionDeg, speedKmh)
+    focus(id) / overview() / setSelected(id)
+    setIgniteMode(on) / setPaused(paused)
+    dispose()
+  }
+  interface SceneCallbacks {
+    onHover(assetId, clientX, clientY)
+    onSelect(assetId)
+    onCellClick(x, y)
+  }
+  class GroundPainter
+  class Particles
+}
+
+class "FastAPI backend\n(/api: Vite proxy or same origin)" as Backend <<external>>
+
+' ---- relationships (directions keep the views on top) ------------------------
+App *-down- TopBar
+App *-down- CommandCenter
+App *-down- AdminDashboard
+CommandCenter *-down- Panels
+CommandCenter *-down- SceneView
+AdminDashboard *-down- DashParts
+AdminDashboard *-down- Charts
+DashParts -[hidden]down- useSimulation
+Panels -[hidden]down- useHashRoute
+App -down-> useSimulation : sim = useSimulation()
+App -down-> useHashRoute
+CommandCenter ..> Simulation : props
+useSimulation ..> Simulation : returns
+useSimulation -down-> api
+AdminDashboard -down-> api : incidents(), simulateIncidents() ...
+api ..> Types
+api ..> ApiError : throws
+api -down-> Backend : fetch (JSON)
+SceneView *-down- CityScene
+CityScene ..> SceneCallbacks : calls back
+CityScene *-down- GroundPainter
+CityScene *-down- Particles
+
+legend right
+  **Roles**
+  <<container>> / <<component>>  containers own the view state and
+     pass data down to presentational panels.
+  <<hook>>  useSimulation is the client-side store: the live session,
+     the playback loop (REST polling, no WebSocket) and every command;
+     components re-render when it changes.
+  <<Facade>>  api hides fetch, the /api base URL and error handling
+     (ApiError) behind one typed object.
+  <<Adapter>>  SceneView bridges declarative React and the imperative
+     Three.js scene controller (CityScene).
+endlegend
+@enduml

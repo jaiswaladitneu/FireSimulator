@@ -9,6 +9,9 @@ venv/
 .ruff_cache/
 *.egg-info/
 .coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
 # Node / frontend
 node_modules/
@@ -17,3 +20,6 @@ dist/
 
 # Env
 .env
+
+# Local runtime data (incident history written by the API)
+data/

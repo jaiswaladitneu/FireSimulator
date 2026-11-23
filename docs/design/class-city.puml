@@ -1,0 +1,110 @@
+@startuml class-city
+!include theme.iuml
+set separator none
+title City layer: town, people, priorities and fire crews (as implemented)
+hide empty members
+skinparam nodesep 35
+skinparam ranksep 45
+
+class SimulationEngine <<Subject>> <<external>>
+interface TickObserver <<Observer>> <<external>>
+class Grid <<external>>
+
+class CityMapGenerator <<Factory>> {
+  {static} generate(width, height, seed): CityMap
+}
+class CityMap <<dataclass>> {
+  grid: Grid
+  landuse, asset_id: ndarray[y, x]
+  assets: list[Asset]
+  {field} station: (x, y)
+  {field} town: (x0, y0, x1, y1)
+  seed: int
+}
+class Asset <<dataclass>> {
+  id: int
+  kind: house | school | hospital | shop | park
+        | road | fuel_station | battery_storage | ...
+  name, street: str
+  x, y, w, h, capacity, floors: int
+  parts: list[Part]
+  --
+  center: (x, y)
+  to_dict(): dict
+}
+class Part <<dataclass>> {
+  x, y, w, h: int
+  height: float
+  style: str
+}
+
+class CityModel <<ConcreteObserver>> {
+  map: CityMap
+  engine: SimulationEngine
+  hour: int
+  response: ResponseManager
+  per-asset NumPy arrays: capacity, occupants,
+    vulnerability, evacuation and harm rates, hazard
+  --
+  attach(engine)
+  before_tick() / after_tick() / on_reset()
+  refresh()
+  dispatch(asset_id): Crew | None
+  set_auto_dispatch(enabled)
+  population() / buildings() / hazards(): dict
+  static_payload() / dynamic_payload(): dict
+  incident_summary(): dict
+}
+class KindProfile <<dataclass>> {
+  {field} presence: share on site for each hour (24)
+  vulnerability, evac_rate, harm_rate
+  hazard, trapped_fraction
+  delay, stay_fraction
+}
+class ResponseManager {
+  station: (x, y)
+  auto: bool
+  crews: list[Crew]
+  --
+  dispatch(asset_id, city): Crew | None
+  step(city, grid): suppressed cells
+  available(): int
+}
+class Crew <<dataclass>> {
+  id: int
+  name: str
+  x, y: float
+  status: available | en_route | working
+  target: asset id | None
+  --
+  to_dict(): dict
+}
+
+' ---- relationships ---------------------------------------------------------
+TickObserver <|.. CityModel
+SimulationEngine "1" o-- "0..*" TickObserver : notifies >
+CityModel --> SimulationEngine : attach(engine)
+CityMapGenerator ..> CityMap : creates >
+CityMap o-- "1" Grid
+CityMap *-- "1..*" Asset
+Asset *-- "1..*" Part
+CityModel --> "1" CityMap
+CityModel ..> KindProfile : rates per asset kind
+CityModel *-- "1" ResponseManager
+ResponseManager *-- "0..12" Crew
+
+legend right
+  **Roles**
+  <<ConcreteObserver>>  CityModel registers with
+     engine.add_observer(self). After every tick it updates
+     people on site, evacuation, casualties, threat and the
+     life-safety priority queue; before a tick it lets the
+     crews suppress cells.
+  <<Factory>>  CityMapGenerator builds a seeded town
+     (same seed -> same town) with an internal builder.
+  **Priority score** = threat x ((people at risk + 2 x people
+     needing rescue) x vulnerability + hazard) x downwind factor;
+     top 15 ranked by level (critical, high, medium, low), then score.
+  Grey classes: defined in the engine-core diagram.
+endlegend
+@enduml
