@@ -18,10 +18,11 @@ from .events import (
     StateUpdateEvent,
 )
 from .listener import SuppressionListener
+from .nats_bus import NatsBus
 from .publisher import EventPublisher
 
 __all__ = [
-    "MessageBus", "InMemoryBus", "EventPublisher", "SuppressionListener",
+    "MessageBus", "InMemoryBus", "NatsBus", "EventPublisher", "SuppressionListener",
     "StateUpdateEvent", "ExtinguishedEvent", "SnapshotEvent",
     "TOPIC_IGNITION", "TOPIC_SPREAD", "TOPIC_STATE",
     "TOPIC_EXTINGUISHED", "TOPIC_SNAPSHOT", "TOPIC_SUPPRESSION",

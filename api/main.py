@@ -39,7 +39,7 @@ from engine.cell import FuelType
 from engine.landuse import landuse_from_fuel
 from engine.scenario import IgnitionPoint
 from engine.session import Session, create_session
-from messaging import TOPIC_SNAPSHOT, EventPublisher, InMemoryBus
+from messaging import TOPIC_SNAPSHOT, EventPublisher, InMemoryBus, NatsBus
 from persistence import (
     IncidentRecord,
     InMemoryIncidentRepository,
@@ -117,6 +117,16 @@ def _snapshot_repository():
     if path in ("", ":memory:"):
         return InMemorySnapshotRepository()
     return JsonFileSnapshotRepository(path)
+
+
+def _make_bus():
+    """In-memory bus by default; a NATS adapter when ``FIRESIM_NATS_URL`` is set.
+
+    Setting ``FIRESIM_NATS_URL`` (e.g. ``nats://localhost:4222``) publishes the run's fire
+    events to a real NATS server so other Fireforce6 components can consume them.
+    """
+    url = os.environ.get("FIRESIM_NATS_URL", "")
+    return NatsBus(url) if url else InMemoryBus()
 
 
 # How often the live run saves a full-state snapshot (ticks); 0 disables periodic snapshots.
@@ -280,7 +290,7 @@ def _build_live(sc: Scenario) -> Session:
     Returns:
         The live ``Session`` (its engine already wired to the bus and archiver).
     """
-    bus = InMemoryBus()
+    bus = _make_bus()
     bus.subscribe(TOPIC_SNAPSHOT, SnapshotArchiver(snapshots, sc.id).handle)
     return _build(sc, publisher=EventPublisher(bus), snapshot_every=SNAPSHOT_EVERY)
 
