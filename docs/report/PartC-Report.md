@@ -18,15 +18,17 @@ CI pipeline: https://github.com/jaiswaladitneu/FireSimulator/actions/workflows/c
 |---|---|---|---|
 | Functional scope | Wildland fire spread on a terrain grid, scenario CRUD, playback, replay | Kept, plus a **city incident-command layer**: a procedural town, a people model (who is where by time of day, evacuation, rescue, estimated casualties), life-safety priority ranking, fire-crew dispatch (manual and automatic), and an incident history | Fire spread alone gave a commander nothing to act on; the city layer turns the simulator into a decision tool |
 | New user role | Operator only | Operator plus **administrator** (Admin Dashboard: incident history, analytics, batch simulation, CSV export) | Comparing past incidents was a recurring stakeholder request |
-| Epic E5 (UI) | Babylon.js 3-D terrain, WebSocket live feed, 2-D canvas fallback | **Three.js** 3-D town, state fetched by **HTTP polling**; 2-D fallback dropped | Three.js was enough for the scene, and polling at playback speed met the latency need with less code |
-| Epic E6 (Persistence) | PostgreSQL schema, Redis cache | **Repository** interfaces with in-memory and **JSON-file** implementations; Redis dropped | A single Docker container is simpler to deploy and grade; the Repository port leaves room for PostgreSQL later |
-| Epic E3 (Messaging) | NATS adapter | `MessageBus` **port** with an in-memory adapter; NATS adapter postponed | No other Fireforce6 component was ready to exchange messages yet |
-| Non-functional | Reproducible runs, ≥ 80 % test coverage | Reproducible runs (seeded RNG), **≥ 90 % branch coverage enforced in CI** (currently 98 %), single-command build and deployment | Quality bar raised once the build script and CI existed |
+| Epic E5 (UI) | Babylon.js 3-D terrain, WebSocket live feed, 2-D canvas fallback | **Three.js** 3-D town with a **WebSocket live feed** (`WS /simulation/ws`, server-pushed frames, HTTP-polling fallback) and a **2-D canvas fallback** when WebGL is unavailable (`?view=2d`) | Three.js replaced Babylon.js; the feed and fallback were completed after the core shipped |
+| Epic E6 (Persistence) | PostgreSQL schema, Redis cache | **Repository** ports with in-memory, **JSON-file** and **PostgreSQL** implementations; an optional **Redis** live-state cache; periodic **snapshots** saved during a run for resync/replay | The JSON-file single container is the default for easy grading; PostgreSQL (`FIRESIM_DATABASE_URL`) and Redis (`FIRESIM_REDIS_URL`) switch on via environment variables |
+| Epic E3 (Messaging) | NATS adapter | `MessageBus` **port** with an in-memory adapter **and a NATS adapter** (`FIRESIM_NATS_URL`), verified against a real NATS server in CI | The in-memory bus stays the default; NATS is available for exchanging fire events with other Fireforce6 components |
+| Non-functional | Reproducible runs, ≥ 80 % test coverage | Reproducible runs (seeded RNG), **≥ 90 % branch coverage enforced in CI** (currently 98 %), live-integration tests against real NATS/Redis/PostgreSQL in CI, single-command build and deployment | Quality bar raised once the build script and CI existed |
 
 **Solution space.** The layered **Ports and Adapters** architecture from Part B is unchanged. The city
 features were added *without modifying the wildland engine*: the town attaches to the engine as a tick
 **Observer** and supplies its own spread **Strategy** (`UrbanSpreadModel`). The API now also serves the
-built UI, so the whole app ships as one Docker image (Figure 1).
+built UI, so the whole app ships as one Docker image (Figure 1). The NATS, Redis and PostgreSQL
+adapters plug in behind the existing `MessageBus`, `StateCache` and `Repository` ports, chosen by
+environment variables, so the default single container is unchanged.
 
 ![Figure 1 — Deployed architecture](../design/architecture.png)
 *Figure 1: Deployed architecture: one container (FastAPI + built React UI) with a mounted volume for
@@ -50,15 +52,16 @@ NumPy (vectorized grid).*
 NumPy.*
 
 ![Figure 4 — Messaging](../design/class-messaging.png)
-*Figure 4: Messaging. `MessageBus` <<Port>> with `InMemoryBus` <<Adapter>>; `EventPublisher`
-<<Publisher>> and `SuppressionListener` <<Subscriber>> exchange events on versioned topics
-(`fire.*.v1`).*
+*Figure 4: Messaging. `MessageBus` <<Port>> with `InMemoryBus` <<Adapter>> (and a `NatsBus` <<Adapter>>
+for a real NATS server); `EventPublisher` <<Publisher>> and `SuppressionListener` <<Subscriber>>
+exchange events on versioned topics (`fire.*.v1`).*
 
 ![Figure 5 — API and persistence](../design/class-api.png)
 *Figure 5: API and persistence. FastAPI routes (<<Facade>>) take `ScenarioIn` <<DTO>> and drive the
 engine `Session`; `ApiPrefixMiddleware` serves every route under `/api` as well; `ScenarioRepository`,
-`SnapshotRepository` and `IncidentRepository` <<Repository>> have in-memory and JSON-file
-implementations; `Snapshot` is a <<Memento>>. Technology: FastAPI, Pydantic, Uvicorn.*
+`SnapshotRepository` and `IncidentRepository` <<Repository>> have in-memory, JSON-file and PostgreSQL
+implementations; a `StateCache` <<Port>> (in-memory or Redis) caches the latest live state; `Snapshot`
+is a <<Memento>>. Technology: FastAPI, Pydantic, Uvicorn.*
 
 ![Figure 6 — Frontend](../design/class-frontend.png)
 *Figure 6: Frontend. `CommandCenter` and `AdminDashboard` <<container>>s, `useSimulation`
@@ -82,23 +85,34 @@ The REST endpoints are also documented interactively by FastAPI's Swagger UI at
 
 ### 3.1 Strategy and frameworks
 
-- **Backend — pytest + pytest-cov.** 82 tests in https://github.com/jaiswaladitneu/FireSimulator/tree/main/tests.
+- **Backend — pytest + pytest-cov.** 112 tests in https://github.com/jaiswaladitneu/FireSimulator/tree/main/tests
+  (109 unit/API tests plus 3 live-integration tests).
   *Unit tests* drive the engine, spread models, city layer, messaging and repositories directly.
   *API tests* use FastAPI's `TestClient` to call every endpoint, including error paths
   (409 conflicts, 404 not found, 422 validation errors, via `pytest.mark.parametrize`). Randomness is
   controlled with fixed seeds so every test is deterministic.
-- **Frontend — Vitest.** 39 tests in 4 files cover the logic behind the dashboards:
+- **Integration tests — real servers.** The NATS, Redis and PostgreSQL adapters are exercised against
+  **real servers** (`nats:2.10`, `redis:7`, `postgres:16`) by a dedicated CI job that starts them as
+  service containers; the same tests are skipped locally unless `FIRESIM_NATS_URL`,
+  `FIRESIM_REDIS_URL` or `FIRESIM_DATABASE_URL` is set, and the adapter logic also has in-process
+  fakes so coverage holds without a server.
+- **Frontend — Vitest.** 50 tests in 6 files cover the logic behind the dashboards and the new UI
+  transport:
   formatting (https://github.com/jaiswaladitneu/FireSimulator/blob/main/frontend/src/lib/format.test.ts),
   Admin Dashboard filters, KPI aggregates and CSV export
   (https://github.com/jaiswaladitneu/FireSimulator/blob/main/frontend/src/lib/stats.test.ts),
   compass names and life-safety ordering
   (https://github.com/jaiswaladitneu/FireSimulator/blob/main/frontend/src/lib/kinds.test.ts),
-  and chart axis scaling
-  (https://github.com/jaiswaladitneu/FireSimulator/blob/main/frontend/src/components/dashboard/chartUtils.test.ts).
+  chart axis scaling
+  (https://github.com/jaiswaladitneu/FireSimulator/blob/main/frontend/src/components/dashboard/chartUtils.test.ts),
+  the WebSocket live-feed URL derivation
+  (https://github.com/jaiswaladitneu/FireSimulator/blob/main/frontend/src/api/liveFeed.test.ts),
+  and the 2-D fallback cell colours and grid drawing
+  (https://github.com/jaiswaladitneu/FireSimulator/blob/main/frontend/src/scene/fallback2d.test.ts).
   Time-dependent tests pass a fixed "now" so they are deterministic.
 - **Coverage analysis.** Branch coverage is measured by `coverage.py`. `pyproject.toml` sets
-  `fail_under = 90`, so the build **fails** if coverage drops. Current result: **98.2 %**
-  (1,931 statements, 380 branches). The HTML report (`htmlcov/`) and `coverage.xml` are uploaded as
+  `fail_under = 90`, so the build **fails** if coverage drops. Current result: **98 %**
+  (2,205 statements, 410 branches). The HTML report (`htmlcov/`) and `coverage.xml` are uploaded as
   CI artifacts, and the coverage table is written to the CI run summary.
 - **System level.** `python build.py smoke` starts the Docker image and checks the UI, `/api/health`,
   scenario creation and one simulation step.
@@ -152,6 +166,8 @@ Pipeline script: https://github.com/jaiswaladitneu/FireSimulator/blob/main/.gith
   - `backend` (Python 3.12): setup → lint → compile → test → docs. Outputs: `coverage-report` and
     `api-docs` artifacts, plus a coverage table in the run summary.
   - `frontend` (Node 22): setup → lint → compile → test. Output: `ui-dist` artifact.
+  - `integration`: starts `nats:2.10`, `redis:7` and `postgres:16` as service containers and runs the
+    NATS, Redis and PostgreSQL adapter round-trip tests against them (the real-server verification).
   - `package` (needs both): builds the Docker image, smoke-tests the container, and on `main` only
     pushes `ghcr.io/jaiswaladitneu/firesimulator:latest` and `:<short-sha>` to GitHub Container
     Registry (continuous delivery).
@@ -180,12 +196,13 @@ Epics: https://github.com/jaiswaladitneu/FireSimulator/issues?q=label%3Aepic
   bus, and saved scenarios replay deterministically. A first React control dashboard went in.
 - **Stories finished:** #24 Deterministic replay (PR https://github.com/jaiswaladitneu/FireSimulator/pull/40),
   #28 Suppression listener (PR https://github.com/jaiswaladitneu/FireSimulator/pull/39),
-  #26 Versioned fire-event topics, #27 Snapshot event, #30 Periodic snapshots (delivered in PR #38).
-  First UI: PR https://github.com/jaiswaladitneu/FireSimulator/pull/41.
+  #26 Versioned fire-event topics (PR #38). #27 Snapshot event and #30 Periodic snapshots were
+  scaffolded in PR #38 (event, publisher method and repository) and completed later — see
+  *Deferred stories* below. First UI: PR https://github.com/jaiswaladitneu/FireSimulator/pull/41.
 - **Contributions:** *Mohammad Adnaan Mansuri* — replay endpoint, suppression listener, reviews.
   *Aditi Jaiswal* — React control dashboard (scenario form, playback controls, live statistics).
 - **Notes:** the NATS adapter (#25) and PostgreSQL (#29) were postponed in favour of the in-memory
-  bus and JSON-file repositories (see §1.1).
+  bus and JSON-file repositories (see §1.1); both were completed later — see *Deferred stories* below.
 
 ### Sprint 3 — Visualization, replay & polish (Nov 16 – Nov 30)
 
@@ -203,12 +220,19 @@ Epics: https://github.com/jaiswaladitneu/FireSimulator/issues?q=label%3Aepic
   *Aditi Jaiswal* — Vitest set-up and 39 frontend unit tests (formatting, dashboard filters, KPIs, CSV export, chart scales), User Manual (wiki), PR reviews.
 - **Notes:** the work was scoped around one deployable container so the final demo runs with one command.
 
-### Not done (lack of time)
+### Deferred stories — completed after the core
 
-| Story | Status |
-|---|---|
-| #25 NATS adapter behind the `MessageBus` port | Postponed; the port and in-memory adapter are in place |
-| #29 PostgreSQL schema & repositories | Replaced by JSON-file repositories behind the same interface |
-| #32 Redis live-state cache (optional) | Dropped |
-| #36 WebSocket live state feed | Replaced by HTTP polling |
-| #37 2-D canvas fallback view (stretch) | Dropped |
+After the one-container product shipped, the stories that had been postponed, replaced or dropped were
+implemented behind the existing ports and merged to `main` — so nothing was left out:
+
+| Story | Delivered | PR |
+|---|---|---|
+| #27 Periodic snapshot event · #30 Periodic snapshotting | Runs emit a periodic `SnapshotEvent` and persist snapshots; `GET /scenarios/{id}/snapshots` and `GET /simulation/resync` serve them | https://github.com/jaiswaladitneu/FireSimulator/pull/46 |
+| #36 WebSocket live state feed | `WS /simulation/ws` streams server-advanced frames; the UI uses it with an HTTP-polling fallback | https://github.com/jaiswaladitneu/FireSimulator/pull/47 |
+| #25 NATS adapter | `NatsBus` implements the `MessageBus` port over nats-py (`FIRESIM_NATS_URL`) | https://github.com/jaiswaladitneu/FireSimulator/pull/48 |
+| #32 Redis live-state cache | `StateCache` port with an in-memory default and a Redis adapter (`FIRESIM_REDIS_URL`) | https://github.com/jaiswaladitneu/FireSimulator/pull/49 |
+| #29 PostgreSQL schema & repositories | `PostgresStore` implements the scenario, snapshot and incident ports (`FIRESIM_DATABASE_URL`) | https://github.com/jaiswaladitneu/FireSimulator/pull/50 |
+| #37 2-D canvas fallback view | A 2-D canvas view of the grid when WebGL is unavailable or `?view=2d` is set | https://github.com/jaiswaladitneu/FireSimulator/pull/51 |
+
+The NATS, Redis and PostgreSQL adapters are verified against real servers by the CI `integration` job.
+All defaults are unchanged, so the demo still runs as one container (`python build.py deploy`).
