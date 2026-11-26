@@ -9,12 +9,14 @@ restarts. The models are ``Snapshot`` (a Memento of the grid state), ``ScenarioR
 ``IncidentRecord``.
 """
 from .models import IncidentRecord, ScenarioRecord, Snapshot
+from .recorder import SnapshotArchiver
 from .repositories import (
     IncidentRepository,
     InMemoryIncidentRepository,
     InMemoryScenarioRepository,
     InMemorySnapshotRepository,
     JsonFileIncidentRepository,
+    JsonFileSnapshotRepository,
     ScenarioRepository,
     SnapshotRepository,
 )
@@ -24,4 +26,5 @@ __all__ = [
     "ScenarioRepository", "SnapshotRepository", "IncidentRepository",
     "InMemoryScenarioRepository", "InMemorySnapshotRepository",
     "InMemoryIncidentRepository", "JsonFileIncidentRepository",
+    "JsonFileSnapshotRepository", "SnapshotArchiver",
 ]

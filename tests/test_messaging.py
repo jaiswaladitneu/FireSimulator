@@ -12,6 +12,7 @@ from messaging.events import (
 )
 from messaging.listener import SuppressionListener
 from messaging.publisher import EventPublisher
+from persistence import InMemorySnapshotRepository, SnapshotArchiver
 
 
 def _engine() -> SimulationEngine:
@@ -31,6 +32,48 @@ def test_publisher_emits_versioned_state_events():
     topics = [topic for topic, _ in bus.published]
     assert TOPIC_STATE in topics
     assert all(payload.get("version") == "1" for _, payload in bus.published)
+
+
+def test_engine_emits_periodic_snapshot_events_for_resync():
+    bus = InMemoryBus()
+    eng = _engine()
+    eng.publisher = EventPublisher(bus)
+    eng.snapshot_every = 2
+
+    eng.start()
+    for _ in range(5):          # ticks 1..5
+        eng.advance()
+
+    snaps = [payload for topic, payload in bus.published if topic == TOPIC_SNAPSHOT]
+    assert [s["tick"] for s in snaps] == [2, 4]            # every 2nd tick
+    assert len(snaps[0]["state"]) == 10 and len(snaps[0]["state"][0]) == 10
+
+
+def test_no_snapshot_events_when_interval_is_zero():
+    bus = InMemoryBus()
+    eng = _engine()
+    eng.publisher = EventPublisher(bus)        # snapshot_every defaults to 0
+    eng.start()
+    eng.advance()
+    assert not any(topic == TOPIC_SNAPSHOT for topic, _ in bus.published)
+
+
+def test_snapshot_archiver_persists_snapshot_events_to_repo():
+    repo = InMemorySnapshotRepository()
+    bus = InMemoryBus()
+    bus.subscribe(TOPIC_SNAPSHOT, SnapshotArchiver(repo, "scenX").handle)
+    eng = _engine()
+    eng.publisher = EventPublisher(bus)
+    eng.snapshot_every = 2
+
+    eng.start()
+    for _ in range(4):          # ticks 1..4 -> snapshots at 2 and 4
+        eng.advance()
+
+    saved = repo.find_by_scenario("scenX")
+    assert [s.tick for s in saved] == [2, 4]
+    assert all(s.scenario_id == "scenX" for s in saved)
+    assert len(saved[0].state) == 10
 
 
 def test_suppression_listener_applies_cells_to_engine():

@@ -67,7 +67,7 @@ def default_ignition(city: CityMap, wind: Wind) -> IgnitionPoint:
     return IgnitionPoint(int(x), int(y))
 
 
-def create_session(sc: Scenario, *, publisher=None) -> Session:
+def create_session(sc: Scenario, *, publisher=None, snapshot_every: int = 0) -> Session:
     """Build the session.
 
     A scenario whose ``map_type`` is not ``"city"`` gets a plain engine from
@@ -83,16 +83,19 @@ def create_session(sc: Scenario, *, publisher=None) -> Session:
         sc: The scenario to build; a city scenario may get a default ignition point.
         publisher: Optional event publisher passed to the engine (see
             ``SimulationEngine.publisher``); None disables event publishing.
+        snapshot_every: Periodic snapshot interval in ticks passed to the engine (see
+            ``SimulationEngine.snapshot_every``); 0 disables periodic snapshots.
 
     Returns:
         The new ``Session``; its ``city`` is None for wildland scenarios.
     """
     if sc.map_type != "city":
-        return Session(sc, SimulationEngine.from_scenario(sc, publisher=publisher))
+        return Session(sc, SimulationEngine.from_scenario(
+            sc, publisher=publisher, snapshot_every=snapshot_every))
     cmap = CityMapGenerator.generate(sc.width, sc.height, sc.seed)
     wind = Wind(sc.wind_direction, sc.wind_speed)
     eng = SimulationEngine(cmap.grid, wind, seed=sc.seed, spread_model=UrbanSpreadModel(),
-                           publisher=publisher)
+                           publisher=publisher, snapshot_every=snapshot_every)
     if not sc.ignition_points:
         sc.ignition_points = [default_ignition(cmap, wind)]
     for p in sc.ignition_points:

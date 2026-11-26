@@ -38,12 +38,16 @@ from engine.cell import FuelType
 from engine.landuse import landuse_from_fuel
 from engine.scenario import IgnitionPoint
 from engine.session import Session, create_session
+from messaging import TOPIC_SNAPSHOT, EventPublisher, InMemoryBus
 from persistence import (
     IncidentRecord,
     InMemoryIncidentRepository,
     InMemoryScenarioRepository,
+    InMemorySnapshotRepository,
     JsonFileIncidentRepository,
+    JsonFileSnapshotRepository,
     ScenarioRecord,
+    SnapshotArchiver,
 )
 
 app = FastAPI(title="Fire Simulator API", version="0.2.0")
@@ -106,8 +110,20 @@ def _incident_repository():
     return JsonFileIncidentRepository(path)
 
 
+def _snapshot_repository():
+    """In-memory by default; set ``FIRESIM_SNAPSHOTS_FILE`` to persist snapshots to a file."""
+    path = os.environ.get("FIRESIM_SNAPSHOTS_FILE", "")
+    if path in ("", ":memory:"):
+        return InMemorySnapshotRepository()
+    return JsonFileSnapshotRepository(path)
+
+
+# How often the live run saves a full-state snapshot (ticks); 0 disables periodic snapshots.
+SNAPSHOT_EVERY = int(os.environ.get("FIRESIM_SNAPSHOT_EVERY", "25"))
+
 scenarios = InMemoryScenarioRepository()
 incidents = _incident_repository()
+snapshots = _snapshot_repository()
 _session: Session | None = None
 _started_at: float = 0.0
 _recorded_id: str | None = None
@@ -236,12 +252,36 @@ def _to_scenario(body: ScenarioIn) -> Scenario:
     )
 
 
-def _build(sc: Scenario) -> Session:
-    """Build a session for a scenario; a ``ValueError`` from the engine becomes HTTP 422."""
+def _build(sc: Scenario, *, publisher=None, snapshot_every: int = 0) -> Session:
+    """Build a session for a scenario; a ``ValueError`` from the engine becomes HTTP 422.
+
+    Args:
+        sc: The scenario to build.
+        publisher: Optional event publisher wired into the engine (see ``create_session``).
+        snapshot_every: Periodic snapshot interval in ticks (see ``create_session``).
+    """
     try:
-        return create_session(sc)
+        return create_session(sc, publisher=publisher, snapshot_every=snapshot_every)
     except ValueError as exc:   # e.g. a city map smaller than the minimum size
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _build_live(sc: Scenario) -> Session:
+    """Build the live session with event publishing and snapshot archiving wired in.
+
+    The engine publishes fire events on an in-memory bus and emits a full-state snapshot
+    every ``SNAPSHOT_EVERY`` ticks; a ``SnapshotArchiver`` subscribed to the snapshot topic
+    saves each one under the scenario id, so the live run's snapshots are kept for resync.
+
+    Args:
+        sc: The scenario to build.
+
+    Returns:
+        The live ``Session`` (its engine already wired to the bus and archiver).
+    """
+    bus = InMemoryBus()
+    bus.subscribe(TOPIC_SNAPSHOT, SnapshotArchiver(snapshots, sc.id).handle)
+    return _build(sc, publisher=EventPublisher(bus), snapshot_every=SNAPSHOT_EVERY)
 
 
 @app.get("/health")
@@ -280,7 +320,7 @@ def create_scenario(body: ScenarioIn) -> dict:
     """
     global _session, _started_at, _recorded_id
     sc = _to_scenario(body)
-    session = _build(sc)
+    session = _build_live(sc)
     payload = body.model_dump()
     # Store the actual ignition points (a city scenario may have had a default chosen).
     payload["ignition_points"] = [asdict(p) for p in sc.ignition_points]
@@ -401,6 +441,35 @@ def replay_scenario(
         "final_state": eng.state.value,
         "frames": frames,
     }
+
+
+@app.get("/scenarios/{scenario_id}/snapshots")
+def list_snapshots(scenario_id: str, full: bool = Query(default=False)) -> dict:
+    """List the full-state snapshots saved for a scenario during its live run.
+
+    The live run saves a snapshot every ``SNAPSHOT_EVERY`` ticks (Epic E6), so a client can
+    see the saved resync points for a scenario and, with ``full=true``, fetch their grid
+    states.
+
+    \f
+    Args:
+        scenario_id: Id of the scenario whose snapshots to list.
+        full: When true, include each snapshot's ``state`` (``height`` rows of cell-state
+            codes); when false (default) return only ``tick`` and ``timestamp``.
+
+    Returns:
+        ``{"scenario_id", "count", "snapshots"}`` where each snapshot has ``tick`` and
+        ``timestamp`` (and ``state`` when ``full`` is true), ordered by tick.
+    """
+    with _lock:
+        saved = snapshots.find_by_scenario(scenario_id)
+    out = []
+    for s in saved:
+        row = {"tick": s.tick, "timestamp": s.timestamp}
+        if full:
+            row["state"] = s.state
+        out.append(row)
+    return {"scenario_id": scenario_id, "count": len(out), "snapshots": out}
 
 
 # ---- playback -----------------------------------------------------------
@@ -575,6 +644,37 @@ def state() -> dict:
     """
     with _lock:
         return _state_payload(_require_session())
+
+
+@app.get("/simulation/resync")
+def resync() -> dict:
+    """Return the latest full-state snapshot of the active simulation, for a late join.
+
+    A client that connects or reconnects mid-run uses this to resync to the current fire
+    without replaying from the start. It returns the newest snapshot saved during the run (one
+    is saved every ``SNAPSHOT_EVERY`` ticks); before the first one is saved it falls back to
+    the engine's current state, so it always returns a usable grid.
+
+    \f
+    Returns:
+        A dict with ``scenario`` (``id`` and ``name``), ``tick``, ``state`` (``height`` rows
+        of cell-state codes, same coding as ``GET /simulation/state``'s ``grid``) and
+        ``source`` (``"snapshot"`` for a saved snapshot, ``"live"`` for the engine fallback).
+
+    Raises:
+        HTTPException: 409 if there is no active scenario.
+    """
+    with _lock:
+        s = _require_session()
+        saved = snapshots.find_by_scenario(s.scenario.id)
+        scenario = {"id": s.scenario.id, "name": s.scenario.name}
+        if saved:
+            latest = saved[-1]
+            return {"scenario": scenario, "tick": latest.tick, "state": latest.state,
+                    "source": "snapshot"}
+        snap = s.engine.snapshot()
+        return {"scenario": scenario, "tick": snap["tick"], "state": snap["state"],
+                "source": "live"}
 
 
 @app.get("/simulation/map")

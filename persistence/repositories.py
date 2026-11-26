@@ -161,6 +161,57 @@ class InMemorySnapshotRepository:
         return sorted(self._store.get(scenario_id, []), key=lambda s: s.tick)
 
 
+class JsonFileSnapshotRepository(InMemorySnapshotRepository):
+    """Snapshots kept in a JSON file so they survive API restarts (for resync and replay).
+
+    Like ``JsonFileIncidentRepository``: writes go to a temporary file that atomically
+    replaces the real one, and an unreadable file is moved aside
+    (``*.corrupt-<time>.json``) rather than silently overwritten. The file holds a JSON array
+    with one object per snapshot (the ``Snapshot`` fields); reads are served from memory.
+
+    Attributes:
+        path: Location of the JSON file.
+    """
+
+    def __init__(self, path: str | os.PathLike) -> None:
+        """Open the snapshot store at ``path``, loading the snapshots already in the file.
+
+        If the file is not valid JSON or holds rows that do not match ``Snapshot``, the store
+        starts empty and the file is renamed to ``<stem>.corrupt-<epoch seconds>.json`` in the
+        same folder. A missing file (and its folder) is created on the first write.
+
+        Args:
+            path: Path of the JSON file.
+        """
+        super().__init__()
+        self.path = Path(path)
+        if self.path.exists():
+            try:
+                for row in json.loads(self.path.read_text(encoding="utf-8")):
+                    snap = Snapshot(**row)
+                    self._store.setdefault(snap.scenario_id, []).append(snap)
+            except (ValueError, TypeError):
+                self._store.clear()
+                self.path.replace(self.path.with_name(f"{self.path.stem}.corrupt-{int(time.time())}.json"))
+
+    def _flush(self) -> None:
+        """Write every snapshot to a temporary file, then atomically replace the JSON file."""
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(self.path.name + ".tmp")
+        rows = [asdict(s) for snaps in self._store.values() for s in snaps]
+        tmp.write_text(json.dumps(rows), encoding="utf-8")
+        os.replace(tmp, self.path)
+
+    def save(self, snapshot: Snapshot) -> None:
+        """Append a snapshot to its scenario's list, then rewrite the file.
+
+        Args:
+            snapshot: The snapshot to store, filed under ``snapshot.scenario_id``.
+        """
+        super().save(snapshot)
+        self._flush()
+
+
 class IncidentRepository(Protocol):
     """Storage port for the incident history (GoF Repository), keyed by ``IncidentRecord.id``.
 

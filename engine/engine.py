@@ -107,6 +107,7 @@ class SimulationEngine:
         seed: int = 0,
         spread_model: SpreadModel | None = None,
         publisher=None,
+        snapshot_every: int = 0,
     ) -> None:
         """Create an engine in the ``IDLE`` state at tick 0.
 
@@ -122,12 +123,16 @@ class SimulationEngine:
             publisher: Optional object with ``publish_state_update(tick, counts)`` and
                 ``publish_extinguished(tick)`` methods, such as ``messaging.EventPublisher``;
                 None disables event publishing.
+            snapshot_every: Publish a full-state ``SnapshotEvent`` every this many ticks (via
+                ``publisher.publish_snapshot``) so a late-joining subscriber can resync; 0
+                (default) disables periodic snapshots. It has no effect without a publisher.
         """
         self.grid = grid
         self.wind = wind or Wind()
         self.seed = seed
         self.spread_model = spread_model or PhysicsSpreadModel()
         self.publisher = publisher
+        self.snapshot_every = snapshot_every
         self.tick = 0
         self.speed = 1.0
         self.state = SimState.IDLE
@@ -151,7 +156,9 @@ class SimulationEngine:
 
     # ---- construction ---------------------------------------------------
     @classmethod
-    def from_scenario(cls, sc: Scenario, *, publisher=None) -> SimulationEngine:
+    def from_scenario(
+        cls, sc: Scenario, *, publisher=None, snapshot_every: int = 0,
+    ) -> SimulationEngine:
         """Build an engine for a wildland scenario.
 
         The map comes from ``MapGenerator`` (scenario size and seed) and the wind from the
@@ -163,12 +170,14 @@ class SimulationEngine:
             sc: The scenario; its ``width``, ``height``, ``seed``, wind and
                 ``ignition_points`` are used.
             publisher: Optional event publisher (see the constructor).
+            snapshot_every: Periodic snapshot interval in ticks (see the constructor).
 
         Returns:
             A new engine in the ``IDLE`` state at tick 0.
         """
         grid = MapGenerator.generate(sc.width, sc.height, sc.seed)
-        eng = cls(grid, Wind(sc.wind_direction, sc.wind_speed), seed=sc.seed, publisher=publisher)
+        eng = cls(grid, Wind(sc.wind_direction, sc.wind_speed), seed=sc.seed,
+                  publisher=publisher, snapshot_every=snapshot_every)
         for p in sc.ignition_points:
             eng.ignite(p.x, p.y)
         return eng
@@ -295,8 +304,9 @@ class SimulationEngine:
         5. Apply queued suppression (see ``apply_suppression``).
         6. Increment ``tick`` and call each observer's ``after_tick``.
         7. Set the state to ``COMPLETED`` if no cell is burning or igniting.
-        8. If a publisher is set, publish the tick's cell counts and, when the engine is
-           ``COMPLETED``, the extinguished event.
+        8. If a publisher is set, publish the tick's cell counts, a full-state snapshot every
+           ``snapshot_every`` ticks (for resync), and, when the engine is ``COMPLETED``, the
+           extinguished event.
 
         It does not check ``state``: callers such as ``run()`` and ``step()`` decide when to
         tick.
@@ -338,6 +348,8 @@ class SimulationEngine:
 
         if self.publisher is not None:
             self.publisher.publish_state_update(self.tick, g.counts())
+            if self.snapshot_every and self.tick % self.snapshot_every == 0:
+                self.publisher.publish_snapshot(self.tick, g.state.tolist())
             if self.state == SimState.COMPLETED:
                 self.publisher.publish_extinguished(self.tick)
 
