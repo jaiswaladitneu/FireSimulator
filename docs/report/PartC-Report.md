@@ -10,6 +10,11 @@ CI pipeline: https://github.com/jaiswaladitneu/FireSimulator/actions/workflows/c
 
 ## 1. Final Design
 
+**Acting on the Part B feedback.** This iteration adds a numbered requirement-traceability table
+(§1.3), shows how the design patterns are *selected and exercised at runtime* (§1.4), restates the
+nonfunctional goals as *measurable* criteria (§1.5), and backs every feature with code, tests and
+peer-reviewed per-story pull requests (§3, §6).
+
 ### 1.1 Changes since Part B
 
 **Problem space**
@@ -67,6 +72,73 @@ is a <<Memento>>. Technology: FastAPI, Pydantic, Uvicorn.*
 *Figure 6: Frontend. `CommandCenter` and `AdminDashboard` <<container>>s, `useSimulation`
 <<hook>> holding the live state, `api` client <<Facade>> over the REST API, `CityScene`
 <<controller>> for the Three.js scene. Technology: React 19, TypeScript, Vite, Three.js.*
+
+### 1.3 Requirement traceability
+
+Each functional requirement maps to the design element that realizes it and to the test and pull
+request that provide evidence (the Part B feedback asked for this table).
+
+| # | Functional requirement | Realized by (design · code) | Evidence (test · PR) |
+|---|---|---|---|
+| FR-1 | Advance the fire tick by tick on a grid | `SimulationEngine` «Subject» · `engine/engine.py` | T1 `test_engine.py` · #38 |
+| FR-2 | Physics spread biased by wind, slope, fuel, moisture | `PhysicsSpreadModel` «Strategy» · `engine/spread.py`, `wind.py` | T2 `test_spread.py` · #38 |
+| FR-3 | Urban spread with embers through the town | `UrbanSpreadModel` «Strategy» · `engine/spread.py` | `test_city.py` · #42 |
+| FR-4 | Scenario create/list/get/delete with validation | FastAPI routes «Facade», `ScenarioIn` «DTO» · `api/main.py` | T5 `test_api_errors.py` · #38 |
+| FR-5 | Playback: play / pause / step / speed / reset | `SimState` lifecycle · `api/main.py` | `test_api.py` · #42 |
+| FR-6 | Deterministic replay of a saved scenario | seeded RNG + `Session` «Factory» · `engine/session.py` | T1 `test_engine.py` · #40 |
+| FR-7 | People model: occupancy, evacuation, casualties | `CityModel` «Observer», `population.py` · `engine/` | T3 `test_city.py` · #42 |
+| FR-8 | Life-safety priority ranking and crew dispatch | `ResponseManager`, `Crew` · `engine/response.py` | T4 `test_city.py` · #42 |
+| FR-9 | Incident history, analytics and CSV export | `IncidentRepository` «Repository» · `persistence/`, `frontend/.../stats.ts` | T8 `stats.test.ts` · #42, #44 |
+| FR-10 | Inbound suppression over the message bus | `MessageBus` «Port», `SuppressionListener` · `messaging/` | T6 `test_messaging.py` · #39 |
+| FR-11 | Fire events on versioned topics; periodic snapshots | `EventPublisher`, `SnapshotEvent`, `SnapshotArchiver` · `messaging/`, `persistence/recorder.py` | `test_messaging.py`, `test_snapshots_api.py` · #46 |
+| FR-12 | Late-join resync | `GET /simulation/resync` · `api/main.py` | `test_snapshots_api.py` · #46 |
+| FR-13 | Live state feed to the UI | `WS /simulation/ws` · `api/main.py`, `frontend/src/api/liveFeed.ts` | `test_ws_feed.py`, `liveFeed.test.ts` · #47 |
+| FR-14 | Interoperable message transport (NATS) | `NatsBus` «Adapter» · `messaging/nats_bus.py` | `test_nats_bus.py` (live) · #48 |
+| FR-15 | Durable, shareable persistence (PostgreSQL) | `PostgresStore` «Repository» · `persistence/postgres.py` | `test_postgres.py` (live) · #50 |
+| FR-16 | Shared live-state cache (Redis) | `StateCache` «Port», `RedisStateCache` · `persistence/cache.py` | `test_cache.py` (live) · #49 |
+| FR-17 | 3-D command center and 2-D fallback view | `CityScene`, `Scene2D` · `frontend/src/` | `fallback2d.test.ts` · #42, #51 |
+
+### 1.4 Design patterns, selected and exercised at runtime
+
+Part B named the patterns; this section shows how each is *chosen and used at runtime*.
+
+- **Strategy — spread model.** `create_session` picks `UrbanSpreadModel` for a `map_type: "city"`
+  scenario and `PhysicsSpreadModel` otherwise; every `advance()` calls
+  `spread_model.ignition_probability(grid, wind)`, so the physics can be swapped without touching the
+  engine.
+- **Adapter — message bus.** `_make_bus()` returns a `NatsBus` when `FIRESIM_NATS_URL` is set, else an
+  `InMemoryBus`; `EventPublisher` and `SuppressionListener` depend only on the `MessageBus` port.
+- **Repository — persistence.** `_make_repositories()` returns in-memory, JSON-file or PostgreSQL
+  repositories from `FIRESIM_DATABASE_URL`; the API never names a concrete repository.
+- **Adapter — state cache.** `_make_state_cache()` returns an in-memory cache or `RedisStateCache`
+  from `FIRESIM_REDIS_URL`.
+- **Observer — tick loop.** `CityModel` attaches to the engine and updates people, priorities and crews
+  every tick; the engine also publishes a state update each tick and a snapshot every *N* ticks, which
+  a subscribed `SnapshotArchiver` persists.
+
+**Suppression interaction (command → effect → event).** A `POST /simulation/suppress` request (or an
+inbound `sim.suppression.v1` message) is validated and its cells are queued with
+`engine.apply_suppression`. On the next `advance()` the engine marks those cells `SUPPRESSED`,
+increments the tick, notifies observers (the city updates crews and losses), checks for completion, and
+the publisher emits a `fire.state.v1` update and, periodically, a `fire.snapshot.v1` snapshot that the
+archiver saves for resync. This is the runtime interaction the Part B feedback asked to see.
+
+### 1.5 Nonfunctional requirements (measurable)
+
+| Property | Criterion | Result |
+|---|---|---|
+| Reproducibility | Same scenario + seed → identical grid after 50 ticks | ✔ T1 (`np.array_equal`) |
+| Tick duration | A tick finishes well inside the 1 s-per-tick playback budget | 3.3 ms (120²), 11.6 ms (200²), 62 ms (400²) on a dev laptop |
+| Grid size | Supported map size per side | 1–400 cells (city ≥ 48); out-of-range rejected with HTTP 422 |
+| Test coverage | Branch coverage enforced in CI | ≥ 90 % gate; **98 %** (2,205 statements, 410 branches) |
+| Message handling | Fire events delivered on versioned topics | synchronous in-memory bus; NATS adapter round-trip verified against a real server in CI |
+| Failure recovery | A cache or service outage must not break the run | state-cache writes are wrapped in `try/except`; unset `FIRESIM_*` variables fall back to in-memory / JSON-file defaults |
+
+**Fully working vs optional.** Everything in the default container is fully working and demonstrated:
+the engine, city layer, 3-D and 2-D UI, snapshots, the WebSocket feed and the incident history. NATS,
+Redis and PostgreSQL are *optional* integrations — off by default, switched on by an environment
+variable. None is mocked: each has a real adapter verified against a real server by the CI integration
+job (§3, §4.2).
 
 ## 2. API Documentation
 
@@ -236,3 +308,8 @@ implemented behind the existing ports and merged to `main` — so nothing was le
 
 The NATS, Redis and PostgreSQL adapters are verified against real servers by the CI `integration` job.
 All defaults are unchanged, so the demo still runs as one container (`python build.py deploy`).
+
+**Process (acting on the Part B feedback).** Each of these stories was delivered as its own
+peer-reviewed pull request (#46–#52), and the issue tracker is reconciled with the work: **0 open
+issues**, delivered stories closed as *completed* and the postponed ones reopened and then completed —
+so the sprint board matches the repository.
