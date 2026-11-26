@@ -10,6 +10,12 @@ restarts. The models are ``Snapshot`` (a Memento of the grid state), ``ScenarioR
 """
 from .cache import InMemoryStateCache, RedisStateCache, StateCache
 from .models import IncidentRecord, ScenarioRecord, Snapshot
+from .postgres import (
+    PostgresIncidentRepository,
+    PostgresScenarioRepository,
+    PostgresSnapshotRepository,
+    PostgresStore,
+)
 from .recorder import SnapshotArchiver
 from .repositories import (
     IncidentRepository,
@@ -29,4 +35,6 @@ __all__ = [
     "InMemoryIncidentRepository", "JsonFileIncidentRepository",
     "JsonFileSnapshotRepository", "SnapshotArchiver",
     "StateCache", "InMemoryStateCache", "RedisStateCache",
+    "PostgresStore", "PostgresScenarioRepository",
+    "PostgresSnapshotRepository", "PostgresIncidentRepository",
 ]

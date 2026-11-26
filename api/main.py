@@ -48,6 +48,7 @@ from persistence import (
     InMemoryStateCache,
     JsonFileIncidentRepository,
     JsonFileSnapshotRepository,
+    PostgresStore,
     RedisStateCache,
     ScenarioRecord,
     SnapshotArchiver,
@@ -141,12 +142,28 @@ def _make_state_cache():
     return RedisStateCache(url) if url else InMemoryStateCache()
 
 
+def _make_repositories():
+    """Pick the storage backend for scenarios, incidents and snapshots.
+
+    With ``FIRESIM_DATABASE_URL`` set (e.g. ``postgresql://user:pw@host/db``) all three use
+    PostgreSQL behind the same repository ports, so the data is shared and survives restarts.
+    Otherwise scenarios stay in memory, while incidents and snapshots use their own factories
+    (JSON file or in-memory).
+
+    Returns:
+        A ``(scenarios, incidents, snapshots)`` tuple of repositories.
+    """
+    url = os.environ.get("FIRESIM_DATABASE_URL", "")
+    if url:
+        store = PostgresStore(url)
+        return store.scenarios, store.incidents, store.snapshots
+    return InMemoryScenarioRepository(), _incident_repository(), _snapshot_repository()
+
+
 # How often the live run saves a full-state snapshot (ticks); 0 disables periodic snapshots.
 SNAPSHOT_EVERY = int(os.environ.get("FIRESIM_SNAPSHOT_EVERY", "25"))
 
-scenarios = InMemoryScenarioRepository()
-incidents = _incident_repository()
-snapshots = _snapshot_repository()
+scenarios, incidents, snapshots = _make_repositories()
 state_cache = _make_state_cache()
 _session: Session | None = None
 _started_at: float = 0.0
