@@ -8,7 +8,14 @@ PostgreSQL-backed implementations can plug in behind the same interfaces.
 restarts. The models are ``Snapshot`` (a Memento of the grid state), ``ScenarioRecord`` and
 ``IncidentRecord``.
 """
+from .cache import InMemoryStateCache, RedisStateCache, StateCache
 from .models import IncidentRecord, ScenarioRecord, Snapshot
+from .postgres import (
+    PostgresIncidentRepository,
+    PostgresScenarioRepository,
+    PostgresSnapshotRepository,
+    PostgresStore,
+)
 from .recorder import SnapshotArchiver
 from .repositories import (
     IncidentRepository,
@@ -27,4 +34,7 @@ __all__ = [
     "InMemoryScenarioRepository", "InMemorySnapshotRepository",
     "InMemoryIncidentRepository", "JsonFileIncidentRepository",
     "JsonFileSnapshotRepository", "SnapshotArchiver",
+    "StateCache", "InMemoryStateCache", "RedisStateCache",
+    "PostgresStore", "PostgresScenarioRepository",
+    "PostgresSnapshotRepository", "PostgresIncidentRepository",
 ]

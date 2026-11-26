@@ -18,6 +18,7 @@ built UI is served from ``/`` when ``FIRESIM_STATIC_DIR`` names an existing fold
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import threading
 import time
@@ -27,7 +28,7 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -38,14 +39,17 @@ from engine.cell import FuelType
 from engine.landuse import landuse_from_fuel
 from engine.scenario import IgnitionPoint
 from engine.session import Session, create_session
-from messaging import TOPIC_SNAPSHOT, EventPublisher, InMemoryBus
+from messaging import TOPIC_SNAPSHOT, EventPublisher, InMemoryBus, NatsBus
 from persistence import (
     IncidentRecord,
     InMemoryIncidentRepository,
     InMemoryScenarioRepository,
     InMemorySnapshotRepository,
+    InMemoryStateCache,
     JsonFileIncidentRepository,
     JsonFileSnapshotRepository,
+    PostgresStore,
+    RedisStateCache,
     ScenarioRecord,
     SnapshotArchiver,
 )
@@ -84,7 +88,7 @@ class ApiPrefixMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        """Strip a leading ``/api`` from HTTP request paths, then call the wrapped app.
+        """Strip a leading ``/api`` from HTTP and WebSocket paths, then call the wrapped app.
 
         Args:
             scope: ASGI connection scope; ``path`` and ``raw_path`` are rewritten.
@@ -92,7 +96,7 @@ class ApiPrefixMiddleware:
             send: ASGI send channel, passed through unchanged.
         """
         path = scope.get("path", "")
-        if scope["type"] == "http" and (path == "/api" or path.startswith("/api/")):
+        if scope["type"] in ("http", "websocket") and (path == "/api" or path.startswith("/api/")):
             path = path[4:] or "/"
             scope = {**scope, "path": path, "raw_path": path.encode()}
         await self.app(scope, receive, send)
@@ -118,12 +122,49 @@ def _snapshot_repository():
     return JsonFileSnapshotRepository(path)
 
 
+def _make_bus():
+    """In-memory bus by default; a NATS adapter when ``FIRESIM_NATS_URL`` is set.
+
+    Setting ``FIRESIM_NATS_URL`` (e.g. ``nats://localhost:4222``) publishes the run's fire
+    events to a real NATS server so other Fireforce6 components can consume them.
+    """
+    url = os.environ.get("FIRESIM_NATS_URL", "")
+    return NatsBus(url) if url else InMemoryBus()
+
+
+def _make_state_cache():
+    """In-memory state cache by default; Redis when ``FIRESIM_REDIS_URL`` is set.
+
+    Setting ``FIRESIM_REDIS_URL`` (e.g. ``redis://localhost:6379/0``) caches each run's latest
+    state in Redis, so it is shared across API instances and survives a restart.
+    """
+    url = os.environ.get("FIRESIM_REDIS_URL", "")
+    return RedisStateCache(url) if url else InMemoryStateCache()
+
+
+def _make_repositories():
+    """Pick the storage backend for scenarios, incidents and snapshots.
+
+    With ``FIRESIM_DATABASE_URL`` set (e.g. ``postgresql://user:pw@host/db``) all three use
+    PostgreSQL behind the same repository ports, so the data is shared and survives restarts.
+    Otherwise scenarios stay in memory, while incidents and snapshots use their own factories
+    (JSON file or in-memory).
+
+    Returns:
+        A ``(scenarios, incidents, snapshots)`` tuple of repositories.
+    """
+    url = os.environ.get("FIRESIM_DATABASE_URL", "")
+    if url:
+        store = PostgresStore(url)
+        return store.scenarios, store.incidents, store.snapshots
+    return InMemoryScenarioRepository(), _incident_repository(), _snapshot_repository()
+
+
 # How often the live run saves a full-state snapshot (ticks); 0 disables periodic snapshots.
 SNAPSHOT_EVERY = int(os.environ.get("FIRESIM_SNAPSHOT_EVERY", "25"))
 
-scenarios = InMemoryScenarioRepository()
-incidents = _incident_repository()
-snapshots = _snapshot_repository()
+scenarios, incidents, snapshots = _make_repositories()
+state_cache = _make_state_cache()
 _session: Session | None = None
 _started_at: float = 0.0
 _recorded_id: str | None = None
@@ -279,7 +320,7 @@ def _build_live(sc: Scenario) -> Session:
     Returns:
         The live ``Session`` (its engine already wired to the bus and archiver).
     """
-    bus = InMemoryBus()
+    bus = _make_bus()
     bus.subscribe(TOPIC_SNAPSHOT, SnapshotArchiver(snapshots, sc.id).handle)
     return _build(sc, publisher=EventPublisher(bus), snapshot_every=SNAPSHOT_EVERY)
 
@@ -677,6 +718,71 @@ def resync() -> dict:
                 "source": "live"}
 
 
+@app.get("/simulation/cached/{scenario_id}")
+def cached_state(scenario_id: str) -> dict:
+    """Return the cached latest live state of a scenario from the state cache.
+
+    Every live update caches the current state under its scenario id; this returns that
+    cached state for any scenario. With Redis (``FIRESIM_REDIS_URL``) it is served even from
+    another API instance or after a restart, while the in-memory session is gone.
+
+    \f
+    Args:
+        scenario_id: Id of the scenario whose cached state to return.
+
+    Returns:
+        The cached state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 404 if nothing is cached for this scenario.
+    """
+    cached = state_cache.get(scenario_id)
+    if cached is None:
+        raise HTTPException(status_code=404, detail="no cached state for this scenario")
+    return cached
+
+
+# Seconds the live feed waits between frames when the simulation is not advancing.
+WS_IDLE_INTERVAL = 0.25
+
+
+@app.websocket("/simulation/ws")
+async def simulation_feed(ws: WebSocket) -> None:
+    """Stream the live simulation state over a WebSocket (server-driven playback).
+
+    On connect the client gets the current state at once (a late join resyncs immediately);
+    then, while the simulation is ``running``, the server advances it one tick per frame
+    (paced by the playback speed) and pushes each new state, so the client receives a live
+    feed without polling. Playback is still controlled over HTTP (``play``/``pause``/
+    ``speed``/``reset``); this feed reflects those changes on the next frame. The socket is
+    closed if there is no active scenario.
+
+    Each frame has the same shape as ``GET /simulation/state``. When the fire goes out, the
+    city incident is recorded just as on the HTTP path, and the feed keeps sending the final
+    ``completed`` state as a heartbeat until the client disconnects.
+    """
+    await ws.accept()
+    advance = False
+    try:
+        while True:
+            with _lock:
+                s = _session
+                if s is None:
+                    break
+                if advance and s.engine.state == SimState.RUNNING:
+                    s.engine.advance()
+                    _maybe_record(s)
+                running = s.engine.state == SimState.RUNNING
+                payload = _state_payload(s)
+                speed = s.engine.speed
+            await ws.send_json(payload)
+            advance = True
+            await asyncio.sleep(max(0.05, 1.0 / speed) if running else WS_IDLE_INTERVAL)
+    except WebSocketDisconnect:
+        return
+    await ws.close(code=1008)   # no active scenario to stream
+
+
 @app.get("/simulation/map")
 def simulation_map() -> dict:
     """The static map (land use, fuel, elevation, assets). Fetch once per scenario.
@@ -856,9 +962,14 @@ def end_incident() -> dict:
 
 
 def _state_payload(s: Session) -> dict:
-    """Build the live state payload returned by ``GET /simulation/state`` and the controls."""
+    """Build the live state payload returned by ``GET /simulation/state`` and the controls.
+
+    The payload is also written to the state cache as the scenario's latest live state, so it
+    can be read back by scenario id (and, with Redis, from another instance or after a
+    restart). A cache failure is swallowed so it can never break the simulation.
+    """
     eng = s.engine
-    return {
+    payload = {
         "state": eng.state.value,
         "tick": eng.tick,
         "speed": eng.speed,
@@ -870,6 +981,11 @@ def _state_payload(s: Session) -> dict:
         "incident_id": _recorded_id,
         "city": s.city.dynamic_payload() if s.city is not None else None,
     }
+    try:
+        state_cache.put(s.scenario.id, payload)
+    except Exception:   # noqa: BLE001 - a cache outage must never break the simulation
+        pass
+    return payload
 
 
 # ---- incident history (admin dashboard) -----------------------------------

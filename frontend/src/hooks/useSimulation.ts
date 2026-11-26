@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../api/client'
+import { openFeed } from '../api/liveFeed'
 import type { MapData, ScenarioParams, SimPayload } from '../api/types'
 
 export const SPEEDS = [0.5, 1, 2, 4, 8] as const
@@ -78,13 +79,18 @@ export function useSimulation(): Simulation {
     }
   }, [])
 
-  // Playback loop: one tick per 1/speed seconds while running.
+  // Playback while running: prefer the server-pushed WebSocket feed (the server advances the
+  // run and streams each frame); fall back to driving one tick per 1/speed seconds over HTTP
+  // if the socket cannot be opened.
   const running = sim?.state === 'running'
   useEffect(() => {
     if (!running) return
     let cancelled = false
+    let httpStarted = false
     let timer = 0
-    const loop = async () => {
+    let feed: { close: () => void } | null = null
+
+    const httpLoop = async () => {
       const started = performance.now()
       try {
         const next = await api.tick()
@@ -96,11 +102,23 @@ export function useSimulation(): Simulation {
         return
       }
       const wait = Math.max(0, 1000 / speedRef.current - (performance.now() - started))
-      timer = window.setTimeout(loop, wait)
+      timer = window.setTimeout(httpLoop, wait)
     }
-    timer = window.setTimeout(loop, 1000 / speedRef.current)
+
+    const startHttp = () => {
+      if (httpStarted || cancelled) return
+      httpStarted = true
+      feed?.close() // stop the socket; HTTP ticking drives from here
+      timer = window.setTimeout(httpLoop, 1000 / speedRef.current)
+    }
+
+    feed = openFeed((next) => {
+      if (!cancelled && !httpStarted) setSim(next)
+    }, startHttp)
+
     return () => {
       cancelled = true
+      feed?.close()
       window.clearTimeout(timer)
     }
   }, [running])
