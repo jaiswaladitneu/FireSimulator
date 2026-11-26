@@ -45,8 +45,10 @@ from persistence import (
     InMemoryIncidentRepository,
     InMemoryScenarioRepository,
     InMemorySnapshotRepository,
+    InMemoryStateCache,
     JsonFileIncidentRepository,
     JsonFileSnapshotRepository,
+    RedisStateCache,
     ScenarioRecord,
     SnapshotArchiver,
 )
@@ -129,12 +131,23 @@ def _make_bus():
     return NatsBus(url) if url else InMemoryBus()
 
 
+def _make_state_cache():
+    """In-memory state cache by default; Redis when ``FIRESIM_REDIS_URL`` is set.
+
+    Setting ``FIRESIM_REDIS_URL`` (e.g. ``redis://localhost:6379/0``) caches each run's latest
+    state in Redis, so it is shared across API instances and survives a restart.
+    """
+    url = os.environ.get("FIRESIM_REDIS_URL", "")
+    return RedisStateCache(url) if url else InMemoryStateCache()
+
+
 # How often the live run saves a full-state snapshot (ticks); 0 disables periodic snapshots.
 SNAPSHOT_EVERY = int(os.environ.get("FIRESIM_SNAPSHOT_EVERY", "25"))
 
 scenarios = InMemoryScenarioRepository()
 incidents = _incident_repository()
 snapshots = _snapshot_repository()
+state_cache = _make_state_cache()
 _session: Session | None = None
 _started_at: float = 0.0
 _recorded_id: str | None = None
@@ -688,6 +701,30 @@ def resync() -> dict:
                 "source": "live"}
 
 
+@app.get("/simulation/cached/{scenario_id}")
+def cached_state(scenario_id: str) -> dict:
+    """Return the cached latest live state of a scenario from the state cache.
+
+    Every live update caches the current state under its scenario id; this returns that
+    cached state for any scenario. With Redis (``FIRESIM_REDIS_URL``) it is served even from
+    another API instance or after a restart, while the in-memory session is gone.
+
+    \f
+    Args:
+        scenario_id: Id of the scenario whose cached state to return.
+
+    Returns:
+        The cached state payload (same shape as ``GET /simulation/state``).
+
+    Raises:
+        HTTPException: 404 if nothing is cached for this scenario.
+    """
+    cached = state_cache.get(scenario_id)
+    if cached is None:
+        raise HTTPException(status_code=404, detail="no cached state for this scenario")
+    return cached
+
+
 # Seconds the live feed waits between frames when the simulation is not advancing.
 WS_IDLE_INTERVAL = 0.25
 
@@ -908,9 +945,14 @@ def end_incident() -> dict:
 
 
 def _state_payload(s: Session) -> dict:
-    """Build the live state payload returned by ``GET /simulation/state`` and the controls."""
+    """Build the live state payload returned by ``GET /simulation/state`` and the controls.
+
+    The payload is also written to the state cache as the scenario's latest live state, so it
+    can be read back by scenario id (and, with Redis, from another instance or after a
+    restart). A cache failure is swallowed so it can never break the simulation.
+    """
     eng = s.engine
-    return {
+    payload = {
         "state": eng.state.value,
         "tick": eng.tick,
         "speed": eng.speed,
@@ -922,6 +964,11 @@ def _state_payload(s: Session) -> dict:
         "incident_id": _recorded_id,
         "city": s.city.dynamic_payload() if s.city is not None else None,
     }
+    try:
+        state_cache.put(s.scenario.id, payload)
+    except Exception:   # noqa: BLE001 - a cache outage must never break the simulation
+        pass
+    return payload
 
 
 # ---- incident history (admin dashboard) -----------------------------------
