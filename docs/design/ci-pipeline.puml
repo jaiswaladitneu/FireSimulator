@@ -26,6 +26,14 @@ fork again
     (runs once package.json has a test script);
     :Upload artifact: ui-dist;
   }
+fork again
+  partition "integration job  (service containers)" {
+    :start nats:2.10, redis:7, postgres:16;
+    :python build.py setup --scope backend;
+    :pytest -k against_a_live
+    (NATS / Redis / PostgreSQL adapters
+    against real servers);
+  }
 end fork
 partition "package job  (needs backend + frontend)" {
   :python build.py package
