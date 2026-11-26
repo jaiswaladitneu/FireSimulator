@@ -7,12 +7,6 @@
  */
 import { GROUND, type RGB } from './palette'
 
-/** Minimal 2-D context surface the renderer needs (a real CanvasRenderingContext2D fits). */
-export interface Ctx2D {
-  fillStyle: string
-  fillRect: (x: number, y: number, w: number, h: number) => void
-}
-
 const toCss = ([r, g, b]: RGB): string => `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`
 
 // Fire-state colours (grid codes 1..4); unburned (0) shows the land-use ground colour.
@@ -34,7 +28,7 @@ export function cellColor(state: number, landuse: number): string {
 
 /** Draw the grid onto a 2-D context: one ``cellPx`` square per cell. */
 export function drawGrid(
-  ctx: Ctx2D,
+  ctx: CanvasRenderingContext2D,
   grid: number[][],
   landuse: number[][],
   cellPx: number,

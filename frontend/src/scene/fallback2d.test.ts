@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { cellColor, drawGrid, hasWebGL, type Ctx2D } from './fallback2d'
+import { cellColor, drawGrid, hasWebGL } from './fallback2d'
 
 describe('2-D fallback cell colours', () => {
   it('uses fire colours for burning, burned and suppressed cells', () => {
@@ -21,11 +21,12 @@ describe('2-D fallback cell colours', () => {
 describe('2-D fallback grid drawing', () => {
   it('fills one square per cell at the right position and colour', () => {
     const calls: Array<[string, number, number, number, number]> = []
-    const ctx: Ctx2D = {
+    const fake = {
       fillStyle: '',
-      fillRect: (x, y, w, h) => calls.push([ctx.fillStyle, x, y, w, h]),
+      fillRect: (x: number, y: number, w: number, h: number) =>
+        calls.push([fake.fillStyle, x, y, w, h]),
     }
-    drawGrid(ctx, [[2, 0]], [[8, 0]], 10)
+    drawGrid(fake as unknown as CanvasRenderingContext2D, [[2, 0]], [[8, 0]], 10)
     expect(calls).toEqual([
       ['rgb(255, 77, 13)', 0, 0, 10, 10], // burning cell
       ['rgb(42, 106, 138)', 10, 0, 10, 10], // water cell at x=1
