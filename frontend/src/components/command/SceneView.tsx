@@ -1,6 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { MapData, SimPayload } from '../../api/types'
 import { CityScene } from '../../scene/CityScene'
+import { hasWebGL } from '../../scene/fallback2d'
+import { Scene2D } from './Scene2D'
 
 export interface FocusRequest {
   id: number | 'overview'
@@ -19,8 +21,27 @@ interface Props {
   onCellClick: (x: number, y: number) => void
 }
 
-/** Hosts the Three.js scene and forwards React state to it. */
+/** True when the 2-D view is forced via ?view=2d or a saved preference. */
+function prefers2D(): boolean {
+  try {
+    if (new URLSearchParams(window.location.search).get('view') === '2d') return true
+    return window.localStorage.getItem('firesim:view') === '2d'
+  } catch {
+    return false
+  }
+}
+
+/** Shows the 3-D town, or the 2-D canvas fallback when WebGL is unavailable or forced. */
 export function SceneView(props: Props) {
+  const [use2D] = useState(() => prefers2D() || !hasWebGL())
+  if (use2D) {
+    return <Scene2D map={props.map} sim={props.sim} onCellClick={props.onCellClick} />
+  }
+  return <Scene3D {...props} />
+}
+
+/** Hosts the Three.js scene and forwards React state to it. */
+function Scene3D(props: Props) {
   const host = useRef<HTMLDivElement>(null)
   const scene = useRef<CityScene | null>(null)
   const handlers = useRef(props)
