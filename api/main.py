@@ -18,6 +18,7 @@ built UI is served from ``/`` when ``FIRESIM_STATIC_DIR`` names an existing fold
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import threading
 import time
@@ -27,7 +28,7 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -84,7 +85,7 @@ class ApiPrefixMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        """Strip a leading ``/api`` from HTTP request paths, then call the wrapped app.
+        """Strip a leading ``/api`` from HTTP and WebSocket paths, then call the wrapped app.
 
         Args:
             scope: ASGI connection scope; ``path`` and ``raw_path`` are rewritten.
@@ -92,7 +93,7 @@ class ApiPrefixMiddleware:
             send: ASGI send channel, passed through unchanged.
         """
         path = scope.get("path", "")
-        if scope["type"] == "http" and (path == "/api" or path.startswith("/api/")):
+        if scope["type"] in ("http", "websocket") and (path == "/api" or path.startswith("/api/")):
             path = path[4:] or "/"
             scope = {**scope, "path": path, "raw_path": path.encode()}
         await self.app(scope, receive, send)
@@ -675,6 +676,47 @@ def resync() -> dict:
         snap = s.engine.snapshot()
         return {"scenario": scenario, "tick": snap["tick"], "state": snap["state"],
                 "source": "live"}
+
+
+# Seconds the live feed waits between frames when the simulation is not advancing.
+WS_IDLE_INTERVAL = 0.25
+
+
+@app.websocket("/simulation/ws")
+async def simulation_feed(ws: WebSocket) -> None:
+    """Stream the live simulation state over a WebSocket (server-driven playback).
+
+    On connect the client gets the current state at once (a late join resyncs immediately);
+    then, while the simulation is ``running``, the server advances it one tick per frame
+    (paced by the playback speed) and pushes each new state, so the client receives a live
+    feed without polling. Playback is still controlled over HTTP (``play``/``pause``/
+    ``speed``/``reset``); this feed reflects those changes on the next frame. The socket is
+    closed if there is no active scenario.
+
+    Each frame has the same shape as ``GET /simulation/state``. When the fire goes out, the
+    city incident is recorded just as on the HTTP path, and the feed keeps sending the final
+    ``completed`` state as a heartbeat until the client disconnects.
+    """
+    await ws.accept()
+    advance = False
+    try:
+        while True:
+            with _lock:
+                s = _session
+                if s is None:
+                    break
+                if advance and s.engine.state == SimState.RUNNING:
+                    s.engine.advance()
+                    _maybe_record(s)
+                running = s.engine.state == SimState.RUNNING
+                payload = _state_payload(s)
+                speed = s.engine.speed
+            await ws.send_json(payload)
+            advance = True
+            await asyncio.sleep(max(0.05, 1.0 / speed) if running else WS_IDLE_INTERVAL)
+    except WebSocketDisconnect:
+        return
+    await ws.close(code=1008)   # no active scenario to stream
 
 
 @app.get("/simulation/map")
