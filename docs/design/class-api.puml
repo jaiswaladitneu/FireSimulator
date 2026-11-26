@@ -15,12 +15,15 @@ package "api  -  FastAPI + pydantic, served by uvicorn" {
   class "api.main (FastAPI app)" as API <<Facade>> {
     scenarios: ScenarioRepository
     incidents: IncidentRepository
+    snapshots: SnapshotRepository
+    state_cache: StateCache
     _session: Session | None
     --
     POST /scenarios,  GET /scenarios,  GET | DELETE /scenarios/{id}
-    GET /scenarios/{id}/replay
+    GET /scenarios/{id}/replay,  GET /scenarios/{id}/snapshots
     POST /simulation/play | pause | step | tick | reset | speed
-    GET /simulation/state,  GET /simulation/map
+    GET /simulation/state | map | resync | cached/{id}
+    WS  /simulation/ws   (live state feed)
     POST /simulation/ignite | suppress | dispatch | auto-dispatch | end
     GET /incidents,  GET | DELETE /incidents/{id},  DELETE /incidents
     POST /incidents/simulate
@@ -57,6 +60,23 @@ package "persistence  -  Repository pattern" {
     writes atomically; moves a corrupt file aside
   }
   class InMemorySnapshotRepository
+  class JsonFileSnapshotRepository {
+    path: Path
+  }
+  class PostgresStore <<Factory>> {
+    dsn: str
+    --
+    PostgreSQL impls of all three
+    repository ports (schema auto-created)
+  }
+  interface StateCache <<Port>> {
+    put(scenario_id, state)
+    get(scenario_id)
+  }
+  class InMemoryStateCache
+  class RedisStateCache <<Adapter>> {
+    ttl: int
+  }
   class ScenarioRecord <<dataclass>> {
     id, name: str
     payload: dict
@@ -86,10 +106,18 @@ API ..> OtherIn
 API -down-> "0..1" Session : drives
 API -down-> "1" ScenarioRepository : scenarios
 API -down-> "1" IncidentRepository : incidents
+API -down-> "1" SnapshotRepository : snapshots
+API -down-> "1" StateCache : state_cache
 ScenarioRepository <|.. InMemoryScenarioRepository
 IncidentRepository <|.. InMemoryIncidentRepository
 InMemoryIncidentRepository <|-- JsonFileIncidentRepository
 SnapshotRepository <|.. InMemorySnapshotRepository
+InMemorySnapshotRepository <|-- JsonFileSnapshotRepository
+StateCache <|.. InMemoryStateCache
+StateCache <|.. RedisStateCache
+PostgresStore ..> ScenarioRepository : builds PG impl
+PostgresStore ..> SnapshotRepository : builds PG impl
+PostgresStore ..> IncidentRepository : builds PG impl
 ScenarioRepository ..> ScenarioRecord
 IncidentRepository ..> IncidentRecord
 SnapshotRepository ..> Snapshot
@@ -102,9 +130,11 @@ legend right
      build works behind the Vite proxy and in the container.
   <<DTO>>  pydantic request models validate every body
      (ranges, required fields) and return 422 when invalid.
-  <<Repository>>  storage behind interfaces: scenarios in memory;
-     incident history in a JSON file (in memory during tests).
-     PostgreSQL from the Part B plan is not built.
+  <<Repository>>  storage behind interfaces: in-memory and JSON-file
+     by default; PostgresStore adds PostgreSQL impls of all three
+     (FIRESIM_DATABASE_URL), verified against a real server in CI.
+  <<Port>> StateCache  caches the latest live state: in-memory by
+     default, RedisStateCache with FIRESIM_REDIS_URL.
   <<Memento>>  Snapshot records the tick and cell states.
   Grey class: defined in the engine-core diagram.
 endlegend

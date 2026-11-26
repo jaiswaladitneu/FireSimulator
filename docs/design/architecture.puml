@@ -8,39 +8,43 @@ skinparam ranksep 50
 actor "Incident commander\n/ administrator" as user
 
 node "Web browser" {
-  component "Command center UI\n(React 19, TypeScript, Three.js)" as ui
+  component "Command center UI\n(React 19, TypeScript, Three.js;\n2-D canvas fallback)" as ui
 }
 
 node "Docker container  firesim:local\n(python:3.12-slim, uvicorn :8000)" as container {
   component "Built UI\n(static files from frontend/dist)" as static
-  component "REST API\n(FastAPI, pydantic)" as api
+  component "REST API + WebSocket\n(FastAPI, pydantic)" as api
   component "Simulation engine + city layer\n(Python, NumPy)" as engine
-  component "Messaging\n(MessageBus port, in-memory bus)" as bus
-  component "Persistence\n(repository interfaces)" as repo
+  component "Messaging\n(MessageBus port: in-memory / NATS)" as bus
+  component "Persistence\n(repositories: JSON file / PostgreSQL)" as repo
+  component "State cache\n(StateCache port: in-memory / Redis)" as cache
   database "incidents.json\n(volume /app/data)" as json
 }
 
-component "NATS" as nats #line.dashed
-database "PostgreSQL" as pg #line.dashed
-database "Redis" as redis #line.dashed
+component "NATS" as nats #back:E8F5E9
+database "PostgreSQL" as pg #back:E8F5E9
+database "Redis" as redis #back:E8F5E9
 cloud "Other Fireforce6\ncomponents" as other #line.dashed
 
 user --> ui
 ui --> static : GET /  (HTML, JS, CSS)
-ui --> api : REST  /api/...  (JSON, polling)
+ui --> api : REST /api/... + WebSocket\n(JSON; live feed, poll fallback)
 api --> engine : sessions, ticks, commands
-api --> repo : scenarios, incident history
+api --> repo : scenarios, incident history, snapshots
+api --> cache : latest live state
 repo --> json
-engine ..> bus : fire events (when a bus is wired)
-bus ..> engine : suppression commands
-bus ..> nats : planned adapter
-repo ..> pg : planned
-api ..> redis : planned live-state cache
-other ..> nats : planned
+engine --> bus : fire events (state, snapshot, extinguished)
+bus --> engine : suppression commands
+bus --> nats : NATS adapter  (FIRESIM_NATS_URL)
+repo --> pg : PostgreSQL  (FIRESIM_DATABASE_URL)
+cache --> redis : Redis  (FIRESIM_REDIS_URL)
+other ..> nats : future interop
 
 legend right
-  Solid: implemented and deployed.
-  Dashed: designed in Part B, not built yet
-  (the app runs without them).
+  Solid: implemented. The green integrations (NATS, PostgreSQL
+  and Redis) are optional, enabled by environment variables and
+  verified against real servers in CI; the default container runs
+  on the in-memory bus and JSON-file history without them.
+  Dashed: external / future.
 endlegend
 @enduml

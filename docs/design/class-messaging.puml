@@ -29,6 +29,16 @@ package "messaging  -  publish / subscribe on versioned topics" {
   class InMemoryBus <<Adapter>> {
     published: list[(topic, payload)]
   }
+  class NatsBus <<Adapter>> {
+    servers: str
+    --
+    sync port over async nats-py
+  }
+  class SnapshotArchiver <<Subscriber>> {
+    repo: SnapshotRepository
+    scenario_id: str
+    saved: int
+  }
   class FireEvent <<dataclass>> {
     tick: int
     version: str = "1"
@@ -51,6 +61,8 @@ SuppressionListener -up-> SimulationEngine : apply_suppression()
 EventPublisher -down-> MessageBus : publish
 SuppressionListener -down-> MessageBus : subscribe
 MessageBus <|.. InMemoryBus
+MessageBus <|.. NatsBus
+SnapshotArchiver -down-> MessageBus : subscribe fire.snapshot.v1
 EventPublisher ..> FireEvent : sends to_dict()
 FireEvent <|-- StateUpdateEvent
 FireEvent <|-- ExtinguishedEvent
@@ -59,15 +71,17 @@ FireEvent <|-- SnapshotEvent
 legend right
   **Roles**
   <<Port>> / <<Adapter>>  MessageBus is the port the code depends
-     on; InMemoryBus is the adapter in use. The NATS adapter of
-     the Part B plan is not built.
+     on; InMemoryBus is the default adapter and NatsBus
+     (FIRESIM_NATS_URL) talks to a real NATS server.
   <<Publisher>>  topics out: fire.state.v1 (every tick),
      fire.extinguished.v1 (fire out), fire.spread.v1,
-     fire.snapshot.v1; every payload carries version "1".
-  <<Subscriber>>  topic in: sim.suppression.v1; the cells are
-     queued with apply_suppression() and applied next tick.
-  The API creates sessions without a publisher, so events flow
-  only where a bus is wired (the messaging tests).
+     fire.snapshot.v1 (every snapshot_every ticks); every
+     payload carries version "1".
+  <<Subscriber>>  topics in: sim.suppression.v1 (SuppressionListener,
+     queued with apply_suppression() and applied next tick) and
+     fire.snapshot.v1 (SnapshotArchiver persists each snapshot).
+  The live API session wires an EventPublisher, so fire events flow
+  at runtime; the NATS adapter is verified against a real server in CI.
   Grey class: defined in the engine-core diagram.
 endlegend
 @enduml
