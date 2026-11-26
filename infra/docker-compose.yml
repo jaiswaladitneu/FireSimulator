@@ -3,9 +3,10 @@
 #   python build.py deploy      (or: docker compose -f infra/docker-compose.yml up -d --build)
 #   python build.py stop        (or: docker compose -f infra/docker-compose.yml down)
 #
-# NATS, PostgreSQL and Redis are the integration services of the Part B design. The current
-# code does not use them yet (in-memory message bus, JSON-file incident history), so they only
-# start when asked for:  docker compose -f infra/docker-compose.yml --profile integration up -d
+# NATS, PostgreSQL and Redis are the integration services. The app uses them when their
+# environment variables are set (FIRESIM_NATS_URL, FIRESIM_DATABASE_URL, FIRESIM_REDIS_URL);
+# otherwise it runs on the in-memory bus and JSON-file history. Start them with:
+#   docker compose -f infra/docker-compose.yml --profile integration up -d
 name: firesim
 
 services:

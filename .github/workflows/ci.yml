@@ -91,6 +91,59 @@ jobs:
           path: frontend/dist/
           retention-days: 14
 
+  integration:
+    name: Integration - live NATS, Redis, PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      nats:
+        image: nats:2.10
+        ports:
+          - 4222:4222
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: firesim
+          POSTGRES_PASSWORD: firesim
+          POSTGRES_DB: firesim
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U firesim"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      FIRESIM_NATS_URL: nats://localhost:4222
+      FIRESIM_REDIS_URL: redis://localhost:6379/0
+      FIRESIM_DATABASE_URL: postgresql://firesim:firesim@localhost:5432/firesim
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install dependencies
+        run: python build.py setup --scope backend
+      - name: Wait for NATS to accept connections
+        run: |
+          for i in $(seq 1 30); do
+            if (exec 3<>/dev/tcp/localhost/4222) 2>/dev/null; then echo "nats up"; exit 0; fi
+            sleep 1
+          done
+          echo "nats did not come up" && exit 1
+      - name: Run the live integration tests (real NATS, Redis, PostgreSQL)
+        run: python -m pytest -v -k against_a_live
+
   package:
     name: Package - Docker image, smoke test, publish
     needs: [backend, frontend]
